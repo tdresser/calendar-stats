@@ -20,6 +20,6 @@
   },
   "homepage": "https://github.com/tdresser/calendar-stats#readme",
   "devDependencies": {
-    "typescript": "^3.2.1"
+    "typescript": "^3.2.2"
   }
 }

@@ -1,3 +1,5 @@
+import { CalendarEvent } from './calendar_event.js'
+
 const CLIENT_ID = "960408234665-mr7v9joc0ckj65eju460e04mji08dsd7.apps.googleusercontent.com";
 const API_KEY = "AIzaSyDZ2rBkT9mfS-zSrkovKw74hd_HmNBSahQ";
 
@@ -61,7 +63,7 @@ function updateSigninStatus(isSignedIn: boolean) {
     if (isSignedIn) {
         authorizeButton.style.display = 'none';
         signoutButton.style.display = 'block';
-        listUpcomingEvents();
+        console.log(JSON.stringify(getEvents()));
     } else {
         authorizeButton.style.display = 'block';
         signoutButton.style.display = 'none';
@@ -84,34 +86,131 @@ function handleSignoutClick(event: Event) {
     gapi.auth2.getAuthInstance().signOut();
 }
 
-/**
- * Print the summary and start datetime/date of the next ten events in
- * the authorized user's calendar. If no events are found an
- * appropriate message is printed.
- */
-function listUpcomingEvents() {
-    // @ts-ignore
-    gapi.client.calendar.events.list({
-        'calendarId': 'primary',
-        'timeMin': (new Date()).toISOString(),
-        'showDeleted': false,
-        'singleEvents': true,
-        'maxResults': 10,
-        'orderBy': 'startTime'
-    }).then(function (response: any) {
-        var events = response.result.items;
-        console.log('Upcoming events:');
+const SHEET_ID = "1iHkcf56qpi0BtK2L5FFFKO3n5Ph1uJrFiaLNGzwZj68";
+const RANGE = "A:Z";
+const USERNAME = "tdresser";
 
-        if (events.length > 0) {
-            for (const event of events) {
-                var when = event.start.dateTime;
-                if (!when) {
-                    when = event.start.date;
-                }
-                console.log(event.summary + ' (' + when + ')')
-            }
-        } else {
-            console.log('No upcoming events found.');
-        }
-    });
+
+
+// TODO - only things I accepted.
+// TODO - split out recurring.
+
+
+
+/*function writeToSheet() {
+  const valueRange = Sheets.newValueRange();
+  valueRange.values = [];
+  const events = getEvents();
+  
+  // TODO - maybe tiebreak on duration?
+  events.sort((a, b) => {
+    let delta = a.start.getTime() - b.start.getTime(); 
+    if (delta == 0)
+      return a.duration - b.duration;
+    return delta;
+  })
+    
+  const minDay = events[0].day;
+  const maxDay = events[events.length - 1].day;
+  const days = [];
+
+  //valueRange.values = valueRange.values.concat([[JSON.stringify(events)]]);
+
+  let day = minDay;
+
+  for (let day = minDay; day.getTime() <= maxDay.getTime(); day.setDate(day.getDate() + 1)) {
+    // Skip weekends.
+    if (day.getDay() == 0 || day.getDay() == 6) {
+      continue;
+    }
+    const dayEvents = [];
+    // TODO - figure out how to compare date.
+    while (events.length && events[0].day.getTime() == day.getTime()) {
+      dayEvents.push(events.shift());
+    }
+    // Make sure to copy date so we don't end up mutating it later.
+    days.push(new Day(new Date(day.getTime()), dayEvents));
+  }
+  
+  const labelRow = ["Day"].concat(TYPES);
+  valueRange.values.push(labelRow);
+  for (const day of days) {
+    valueRange.values.push(day.toRow());  
+  }
+
+  Sheets.Spreadsheets.Values.clear({}, SHEET_ID, RANGE);
+  const result = Sheets.Spreadsheets.Values.update(valueRange, SHEET_ID, RANGE, {
+    valueInputOption: "RAW"
+  });
+};*/
+
+function parseDate(dateString: string): Date {
+    let parts = dateString.split('T');
+    parts[0] = parts[0].replace(/-/g, '/');
+    return new Date(parts.join(' '));
 }
+
+async function getEvents() {
+    const events = [];
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 365);
+    const endDate = new Date();
+    const calendarId = 'primary';
+
+    //@ts-ignore
+    const response = await gapi.client.calendar.events.list({
+        calendarId,
+        timeMin: startDate.toISOString(),
+        timeMax: endDate.toISOString(),
+        showDeleted: false,
+        singleEvents: true,
+        //maxResults: 1000000,
+        maxResults: 100,
+        orderBy: 'startTime',
+    });
+
+    const items = response.result.items;
+    for (const item of items) {
+        let start = item.start.dateTime;
+        if (!start)
+            start = item.start.date;
+
+        let end = item.end.dateTime;
+        if (!end)
+            end = item.end.date;
+
+        if (!item.attendees)
+            item.attendees = [];
+
+        item.attendees = item.attendees.filter(
+            (attendee: any) => !attendee.resource && !attendee.self)
+
+        const oneOnOnAttendee = item.attendees.length == 1 ? item.attendees[0].displayName : null;
+
+        const myAttendees = item.attendees.filter(
+            (x: any) => x.email.includes(USERNAME));
+
+        console.log(item.summary)
+        console.log(item.attendees);
+        console.log(item.organizer);
+        console.log(item.creator);
+        console.log(myAttendees)
+
+        if (myAttendees.length == 0) {
+            continue;
+        }
+
+        const myResponse = myAttendees[0].responseStatus;
+
+        if (item.attendees.length) {
+            events.push(new CalendarEvent(
+                item.summary,
+                parseDate(start),
+                parseDate(end),
+                myResponse,
+                oneOnOnAttendee,
+            ));
+        }
+    };
+    return events;
+} 
