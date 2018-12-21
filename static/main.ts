@@ -1,4 +1,6 @@
 import { CalendarEvent } from './calendar_event.js'
+import { TYPES } from './constants.js'
+import { Day } from './day.js'
 
 const CLIENT_ID = "960408234665-mr7v9joc0ckj65eju460e04mji08dsd7.apps.googleusercontent.com";
 const API_KEY = "AIzaSyDZ2rBkT9mfS-zSrkovKw74hd_HmNBSahQ";
@@ -6,7 +8,20 @@ const API_KEY = "AIzaSyDZ2rBkT9mfS-zSrkovKw74hd_HmNBSahQ";
 let authorizeButton : HTMLElement;
 let signoutButton : HTMLElement;
 
-function init() {
+// Array of API discovery doc URLs for APIs used by the quickstart
+const DISCOVERY_DOCS = [
+    "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest",
+    "https://sheets.googleapis.com/$discovery/rest?version=v4",
+];
+
+// Authorization scopes required by the API; multiple scopes can be
+// included, separated by spaces.
+const SCOPES = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets";
+
+/**
+ *  On load, called to load the auth2 library and API client library.
+ */
+function main() {
     let authorizeButtonNullable = document.getElementById('authorize_button');
     if (authorizeButtonNullable == null)
       throw('No authorize button found.')
@@ -15,21 +30,7 @@ function init() {
     if (signoutButtonNullable == null)
       throw('No signout button found.')
     signoutButton = signoutButtonNullable;
-}
 
-init();
-
-// Array of API discovery doc URLs for APIs used by the quickstart
-var DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
-
-// Authorization scopes required by the API; multiple scopes can be
-// included, separated by spaces.
-var SCOPES = "https://www.googleapis.com/auth/calendar.readonly";
-
-/**
- *  On load, called to load the auth2 library and API client library.
- */
-function main() {
     // @ts-ignore
     gapi.load('client:auth2', initClient);
 }
@@ -70,7 +71,8 @@ async function updateSigninStatus(isSignedIn: boolean) {
     if (isSignedIn) {
         authorizeButton.style.display = 'none';
         signoutButton.style.display = 'block';
-        console.log(JSON.stringify(await getEvents()));
+        //console.log(JSON.stringify(await getEvents()));
+        writeToSheet();
     } else {
         authorizeButton.style.display = 'block';
         signoutButton.style.display = 'none';
@@ -93,21 +95,29 @@ function handleSignoutClick() {
     gapi.auth2.getAuthInstance().signOut();
 }
 
-//const SHEET_ID = "1iHkcf56qpi0BtK2L5FFFKO3n5Ph1uJrFiaLNGzwZj68";
-//const RANGE = "A:Z";
-const USERNAME = "tdresser";
+const SHEET_ID = "1iHkcf56qpi0BtK2L5FFFKO3n5Ph1uJrFiaLNGzwZj68";
+const RANGE = "A:Z";
+//const USERNAME = "tdresser";
 
 
 
 // TODO - only things I accepted.
 // TODO - split out recurring.
 
-
-
-/*function writeToSheet() {
-  const valueRange = Sheets.newValueRange();
-  valueRange.values = [];
-  const events = getEvents();
+async function writeToSheet() {
+  console.log("writeToSheet")
+  // @ts-ignore
+  const valueRange : {
+      range: string,
+      majorDimension: string,
+      values: string[][]
+    } = {
+    range: RANGE,
+    majorDimension: 'ROWS',
+    values: [],
+  }
+  const events = await getEvents();
+  console.log(events);
 
   // TODO - maybe tiebreak on duration?
   events.sort((a, b) => {
@@ -117,23 +127,22 @@ const USERNAME = "tdresser";
     return delta;
   })
 
-  const minDay = events[0].day;
-  const maxDay = events[events.length - 1].day;
+  const minDay = events[0].start;
+  const maxDay = events[events.length - 1].start;
   const days = [];
 
-  //valueRange.values = valueRange.values.concat([[JSON.stringify(events)]]);
-
-  let day = minDay;
-
-  for (let day = minDay; day.getTime() <= maxDay.getTime(); day.setDate(day.getDate() + 1)) {
+  for (let day = new Date(minDay); day.getTime() <= maxDay.getTime(); day.setDate(day.getDate() + 1)) {
     // Skip weekends.
     if (day.getDay() == 0 || day.getDay() == 6) {
       continue;
     }
-    const dayEvents = [];
+    const dayEvents : CalendarEvent[] = [];
     // TODO - figure out how to compare date.
-    while (events.length && events[0].day.getTime() == day.getTime()) {
-      dayEvents.push(events.shift());
+    while (events.length && events[0].start.getTime() == day.getTime()) {
+      const event = events.shift();
+      if (event === undefined)
+        throw('Reading null event.')
+      dayEvents.push(event);
     }
     // Make sure to copy date so we don't end up mutating it later.
     days.push(new Day(new Date(day.getTime()), dayEvents));
@@ -145,11 +154,29 @@ const USERNAME = "tdresser";
     valueRange.values.push(day.toRow());
   }
 
-  Sheets.Spreadsheets.Values.clear({}, SHEET_ID, RANGE);
-  const result = Sheets.Spreadsheets.Values.update(valueRange, SHEET_ID, RANGE, {
-    valueInputOption: "RAW"
+  console.log("about to clear")
+  // @ts-ignore
+  let response = await gapi.client.sheets.spreadsheets.values.clear({
+    spreadsheetId: SHEET_ID,
+    range: RANGE,
+  },{
+    spreadsheetId: SHEET_ID,
+    //clearedRange: RANGE,
   });
-};*/
+
+  console.log("RANGE: " + RANGE);
+  console.log(valueRange);
+
+  // @ts-ignore
+  response = await gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID,
+      range: RANGE,
+      valueInputOption: "RAW",
+  },
+  valueRange);
+
+  console.log(response.result);
+};
 
 function parseDate(dateString: string): Date {
     let parts = dateString.split('T');
@@ -194,14 +221,14 @@ async function getEvents() {
 
         const oneOnOnAttendee = item.attendees.length == 1 ? item.attendees[0].displayName : null;
 
-        const myAttendees = item.attendees.filter(
-            (x: any) => x.email.includes(USERNAME));
+        //const myAttendees = item.attendees.filter(
+        //    (x: any) => x.email.includes(USERNAME));
 
-        console.log(item.summary)
+        /*console.log(item.summary)
         console.log(item.attendees);
         console.log(item.organizer);
         console.log(item.creator);
-        console.log(myAttendees)
+        console.log(myAttendees)*/
 
         //if (myAttendees.length == 0) {
         //    continue;
