@@ -3,11 +3,21 @@ import { CalendarEvent } from './calendar_event.js'
 const CLIENT_ID = "960408234665-mr7v9joc0ckj65eju460e04mji08dsd7.apps.googleusercontent.com";
 const API_KEY = "AIzaSyDZ2rBkT9mfS-zSrkovKw74hd_HmNBSahQ";
 
-function test() {
-    console.log("Test");
+let authorizeButton : HTMLElement;
+let signoutButton : HTMLElement;
+
+function init() {
+    let authorizeButtonNullable = document.getElementById('authorize_button');
+    if (authorizeButtonNullable == null)
+      throw('No authorize button found.')
+    authorizeButton = authorizeButtonNullable;
+    let signoutButtonNullable = document.getElementById('signout_button');
+    if (signoutButtonNullable == null)
+      throw('No signout button found.')
+    signoutButton = signoutButtonNullable;
 }
 
-test();
+init();
 
 // Array of API discovery doc URLs for APIs used by the quickstart
 var DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
@@ -15,9 +25,6 @@ var DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/
 // Authorization scopes required by the API; multiple scopes can be
 // included, separated by spaces.
 var SCOPES = "https://www.googleapis.com/auth/calendar.readonly";
-
-var authorizeButton = document.getElementById('authorize_button');
-var signoutButton = document.getElementById('signout_button');
 
 /**
  *  On load, called to load the auth2 library and API client library.
@@ -59,11 +66,11 @@ function initClient() {
  *  Called when the signed in status changes, to update the UI
  *  appropriately. After a sign-in, the API is called.
  */
-function updateSigninStatus(isSignedIn: boolean) {
+async function updateSigninStatus(isSignedIn: boolean) {
     if (isSignedIn) {
         authorizeButton.style.display = 'none';
         signoutButton.style.display = 'block';
-        console.log(JSON.stringify(getEvents()));
+        console.log(JSON.stringify(await getEvents()));
     } else {
         authorizeButton.style.display = 'block';
         signoutButton.style.display = 'none';
@@ -73,7 +80,7 @@ function updateSigninStatus(isSignedIn: boolean) {
 /**
  *  Sign in the user upon button click.
  */
-function handleAuthClick(event: Event) {
+function handleAuthClick() {
     // @ts-ignore
     gapi.auth2.getAuthInstance().signIn();
 }
@@ -81,13 +88,13 @@ function handleAuthClick(event: Event) {
 /**
  *  Sign out the user upon button click.
  */
-function handleSignoutClick(event: Event) {
+function handleSignoutClick() {
     // @ts-ignore
     gapi.auth2.getAuthInstance().signOut();
 }
 
-const SHEET_ID = "1iHkcf56qpi0BtK2L5FFFKO3n5Ph1uJrFiaLNGzwZj68";
-const RANGE = "A:Z";
+//const SHEET_ID = "1iHkcf56qpi0BtK2L5FFFKO3n5Ph1uJrFiaLNGzwZj68";
+//const RANGE = "A:Z";
 const USERNAME = "tdresser";
 
 
@@ -101,15 +108,15 @@ const USERNAME = "tdresser";
   const valueRange = Sheets.newValueRange();
   valueRange.values = [];
   const events = getEvents();
-  
+
   // TODO - maybe tiebreak on duration?
   events.sort((a, b) => {
-    let delta = a.start.getTime() - b.start.getTime(); 
+    let delta = a.start.getTime() - b.start.getTime();
     if (delta == 0)
       return a.duration - b.duration;
     return delta;
   })
-    
+
   const minDay = events[0].day;
   const maxDay = events[events.length - 1].day;
   const days = [];
@@ -131,11 +138,11 @@ const USERNAME = "tdresser";
     // Make sure to copy date so we don't end up mutating it later.
     days.push(new Day(new Date(day.getTime()), dayEvents));
   }
-  
+
   const labelRow = ["Day"].concat(TYPES);
   valueRange.values.push(labelRow);
   for (const day of days) {
-    valueRange.values.push(day.toRow());  
+    valueRange.values.push(day.toRow());
   }
 
   Sheets.Spreadsheets.Values.clear({}, SHEET_ID, RANGE);
@@ -196,11 +203,11 @@ async function getEvents() {
         console.log(item.creator);
         console.log(myAttendees)
 
-        if (myAttendees.length == 0) {
-            continue;
-        }
+        //if (myAttendees.length == 0) {
+        //    continue;
+        //}
 
-        const myResponse = myAttendees[0].responseStatus;
+        const myResponse = "foo";//myAttendees[0].responseStatus;
 
         if (item.attendees.length) {
             events.push(new CalendarEvent(
@@ -213,4 +220,4 @@ async function getEvents() {
         }
     };
     return events;
-} 
+}
