@@ -127,38 +127,29 @@ async function writeToSheet() {
     return delta;
   })
 
-  const minDay = events[0].start;
-  const maxDay = events[events.length - 1].start;
   const days = [];
-
-  const day = new Date(minDay);
+  const day = new Date(events[0].start);
   day.setHours(0, 0, 0);
-  console.log("About to start loop over days.")
-  for (;
-    day.getTime() <= maxDay.getTime();
-    day.setDate(day.getDate() + 1)) {
-    console.log("DAY");
-    console.log(day);
-    // Skip weekends.
-    if (day.getDay() == 0 || day.getDay() == 6) {
-      continue;
+  // const inProgressEvents : Set<CalendarEvent> = new Set();
+
+  let dayEvents : CalendarEvent[] = [];
+
+  for (let event of events) {
+    const eventStartDay = new Date(event.start);
+    eventStartDay.setHours(0, 0, 0);
+    // Advance to a new day if needed.
+    while(eventStartDay.getTime() != day.getTime()) {
+      // Make sure to copy date so we don't end up mutating it later.
+      days.push(new Day(new Date(day.getTime()), dayEvents));
+      dayEvents = [];
+      day.setDate(day.getDate() + 1);
+      // Skip weekends.
+      // TODO - skip holidays.
+      // Note: we don't push an empty |dayEvents| in these cases.
+      while (day.getDay() == 0 || day.getDay() == 6)
+        day.setDate(day.getDate() + 1);
     }
-    const dayEvents : CalendarEvent[] = [];
-    let event = undefined;
-    while (event = events.shift()) {
-      if (event === undefined)
-        continue;
-      const eventStartDay = new Date(event.start);
-      eventStartDay.setHours(0, 0, 0);
-      if(eventStartDay.getTime() == day.getTime()) {
-        dayEvents.push(event);
-      } else {
-        events.push(event); // We aren't done with this yet.
-        break;
-      }
-    }
-    // Make sure to copy date so we don't end up mutating it later.
-    days.push(new Day(new Date(day.getTime()), dayEvents));
+    dayEvents.push(event);
   }
 
   console.log("LEFTOVER EVENTS");
