@@ -131,22 +131,38 @@ async function writeToSheet() {
   const maxDay = events[events.length - 1].start;
   const days = [];
 
-  for (let day = new Date(minDay); day.getTime() <= maxDay.getTime(); day.setDate(day.getDate() + 1)) {
+  const day = new Date(minDay);
+  day.setHours(0, 0, 0);
+  console.log("About to start loop over days.")
+  for (;
+    day.getTime() <= maxDay.getTime();
+    day.setDate(day.getDate() + 1)) {
+    console.log("DAY");
+    console.log(day);
     // Skip weekends.
     if (day.getDay() == 0 || day.getDay() == 6) {
       continue;
     }
     const dayEvents : CalendarEvent[] = [];
-    // TODO - figure out how to compare date.
-    while (events.length && events[0].start.getTime() == day.getTime()) {
-      const event = events.shift();
+    let event = undefined;
+    while (event = events.shift()) {
       if (event === undefined)
-        throw('Reading null event.')
-      dayEvents.push(event);
+        continue;
+      const eventStartDay = new Date(event.start);
+      eventStartDay.setHours(0, 0, 0);
+      if(eventStartDay.getTime() == day.getTime()) {
+        dayEvents.push(event);
+      } else {
+        events.push(event); // We aren't done with this yet.
+        break;
+      }
     }
     // Make sure to copy date so we don't end up mutating it later.
     days.push(new Day(new Date(day.getTime()), dayEvents));
   }
+
+  console.log("LEFTOVER EVENTS");
+  console.log(events);
 
   const labelRow = ["Day"].concat(TYPES);
   valueRange.values.push(labelRow);
@@ -203,7 +219,11 @@ async function getEvents() {
         orderBy: 'startTime',
     });
 
-    const items = response.result.items;
+    console.log("response");
+    console.log(response);
+
+    const items = response.result.items.filter(
+        (e : any) => e.transparency != "transparent");
     for (const item of items) {
         let start = item.start.dateTime;
         if (!start)
@@ -219,30 +239,14 @@ async function getEvents() {
         item.attendees = item.attendees.filter(
             (attendee: any) => !attendee.resource && !attendee.self)
 
-        const oneOnOnAttendee = item.attendees.length == 1 ? item.attendees[0].displayName : null;
-
-        //const myAttendees = item.attendees.filter(
-        //    (x: any) => x.email.includes(USERNAME));
-
-        /*console.log(item.summary)
-        console.log(item.attendees);
-        console.log(item.organizer);
-        console.log(item.creator);
-        console.log(myAttendees)*/
-
-        //if (myAttendees.length == 0) {
-        //    continue;
-        //}
-
-        const myResponse = "foo";//myAttendees[0].responseStatus;
+        const oneOnOneAttendee = item.attendees.length == 1 ? item.attendees[0].displayName : null;
 
         if (item.attendees.length) {
             events.push(new CalendarEvent(
                 item.summary,
                 parseDate(start),
                 parseDate(end),
-                myResponse,
-                oneOnOnAttendee,
+                oneOnOneAttendee,
             ));
         }
     };

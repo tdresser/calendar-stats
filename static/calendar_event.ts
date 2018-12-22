@@ -1,8 +1,9 @@
+import { TYPE_ONE_ON_ONE, TYPE_UNCATEGORIZED } from "./constants.js";
+
 export class CalendarEvent {
     summary: string;
     start: Date;
     end: Date;
-    myResponse: string;
     duration: number;
     oneOnOneAttendee: string;
     type: string;
@@ -10,17 +11,15 @@ export class CalendarEvent {
         summary : string,
         start : Date,
         end : Date,
-        myResponse : string,
         oneOnOneAttendee : string) {
       this.summary = summary;
       this.start = start;
       this.end = end;
-      this.myResponse = myResponse;
       this.duration = end.getTime() - start.getTime();
       this.oneOnOneAttendee = oneOnOneAttendee;
-      this.type = "Uncategorized";
+      this.type = TYPE_UNCATEGORIZED;
       if (this.oneOnOneAttendee)
-        this.type = "One on one";
+        this.type = TYPE_ONE_ON_ONE;
     }
 
     toRow() {

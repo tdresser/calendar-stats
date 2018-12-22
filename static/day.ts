@@ -12,8 +12,11 @@ export class Day {
       this.minutesPerType = [];
 
       this.minutesPerType = new Array(TYPES.length).fill(0);
+      console.log("Events");
+      console.log(events);
 
       for (const event of events) {
+        console.log(event);
         this.minutesPerType[TYPES.indexOf(event.type)] += event.duration / 60 / 1000;
       }
 
@@ -30,9 +33,8 @@ export class Day {
     }
 
     toRow() {
-      let response = "?";
-      if (this.events.length)
-        response = this.events[0].myResponse;
-      return [this.day.toDateString()].concat(this.minutesPerType.map(x => x.toString())).concat([response]);
+      return [
+        this.day.toDateString()].concat(
+          this.minutesPerType.map(x => x.toString()));
     }
   }
