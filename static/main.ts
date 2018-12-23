@@ -1,7 +1,7 @@
 import { CalendarEvent } from './calendar_event.js'
 import { TYPES } from './constants.js'
 import { Day } from './day.js'
-import * as Plotly from './plotly.js';
+//import * as Plotly from 'plotly.js';
 
 const CLIENT_ID = "960408234665-mr7v9joc0ckj65eju460e04mji08dsd7.apps.googleusercontent.com";
 const API_KEY = "AIzaSyDZ2rBkT9mfS-zSrkovKw74hd_HmNBSahQ";
@@ -112,8 +112,6 @@ function getDurationOverlappingWorkDay(start:Date, end:Date, day:Date) {
   return endTime - startTime;
 }
 
-// TODO - split out recurring.
-
 async function writeToSheet() {
   console.log("writeToSheet")
   // @ts-ignore
@@ -127,7 +125,7 @@ async function writeToSheet() {
     values: [],
   }
 
-  var data = [
+  /*var data = [
     {
       x: ['giraffes', 'orangutans', 'monkeys'],
       y: [20, 14, 23],
@@ -135,9 +133,10 @@ async function writeToSheet() {
     }
   ];
 
-  Plotly.newPlot('myDiv', data);
+  // @ts-ignore
+  Plotly.newPlot('myDiv', data);*/
 
-  return;
+  //return;
 
   const events = await getEvents();
 
@@ -170,9 +169,6 @@ async function writeToSheet() {
     return a.ts.getTime() - b.ts.getTime();
   })
 
-  console.log("EVENT CHANGES")
-  console.log(eventChanges)
-
   const days : Day[] = [];
   const day = new Date(events[0].start);
   day.setHours(0, 0, 0);
@@ -188,20 +184,13 @@ async function writeToSheet() {
         return Math.min(event.duration, min);
       }, Infinity);
 
-    console.log("Min duration")
-    console.log(minInProgressDuration);
     primaryInProgressEvents = primaryInProgressEvents.filter(event => {
         return event.duration == minInProgressDuration
     })
 
-    console.log("primary in progress")
-    console.log(primaryInProgressEvents)
-
     const durationMinutes = getDurationOverlappingWorkDay(ts, eventChange.ts, day) / 60 / 1000;
 
     for (let inProgressEvent of primaryInProgressEvents) {
-        console.log("looking at in progress event")
-        console.log(durationMinutes)
         minutesPerType[TYPES.indexOf(inProgressEvent.type)] +=
           durationMinutes / primaryInProgressEvents.length ;
     }
@@ -215,7 +204,8 @@ async function writeToSheet() {
     const tsDay = new Date(ts);
     tsDay.setHours(0, 0, 0);
     if (tsDay.getTime() != day.getTime()) {
-      days.push(new Day(new Date(day), minutesPerType));
+      if (day.getDay() != 0 && day.getDay() != 6)
+        days.push(new Day(new Date(day), minutesPerType));
       minutesPerType = new Array(TYPES.length).fill(0);
       day.setDate(day.getDate() + 1);
     }
@@ -244,7 +234,7 @@ async function writeToSheet() {
   response = await gapi.client.sheets.spreadsheets.values.update({
       spreadsheetId: SHEET_ID,
       range: RANGE,
-      valueInputOption: "RAW",
+      valueInputOption: "USER_ENTERED",
   },
   valueRange);
 
@@ -271,8 +261,8 @@ async function getEvents() {
         timeMax: endDate.toISOString(),
         showDeleted: false,
         singleEvents: true,
-        maxResults: 1000000,
-        //maxResults: 100,
+        //maxResults: 1000000,
+        maxResults: 100,
         orderBy: 'startTime',
     });
 
