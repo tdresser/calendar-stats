@@ -5,13 +5,15 @@ export class Day {
     minutesPerType: number[];
     constructor(day : Date, minutesPerType : number[]) {
       this.day = day;
-
       this.minutesPerType = minutesPerType;
 
       let totalMeetingTime = 0;
       for (let typeId = 0; typeId < TYPES.length; ++typeId) {
         totalMeetingTime += this.minutesPerType[typeId];
       }
+
+      if (totalMeetingTime > 8 * 60)
+        throw("Too much total meeting time");
 
       let totalNonMeetingTime = 8*60 - totalMeetingTime;
       if (totalNonMeetingTime < 0)

@@ -159,15 +159,33 @@ async function writeToSheet() {
 
   for (let eventChange of eventChanges) {
     console.log("CURRENT EVENTS");
-    console.log(inProgressEvents);
-    const duration = eventChange.ts.getTime() - ts.getTime();
+    console.log(Array.from(inProgressEvents));
 
-    for (let inProgressEvent of inProgressEvents.values()) {
+    let primaryInProgressEvents = Array.from(inProgressEvents);
+    const minInProgressDuration =
+      primaryInProgressEvents.reduce((min, event) => {
+        return Math.min(event.duration, min);
+      }, Infinity);
+
+    console.log("Min duration")
+    console.log(minInProgressDuration);
+    primaryInProgressEvents = primaryInProgressEvents.filter(event => {
+        return event.duration == minInProgressDuration
+    })
+
+    console.log("primary in progress")
+    console.log(primaryInProgressEvents)
+
+    const durationMinutes =
+      (eventChange.ts.getTime() - ts.getTime()) / 60 / 1000;
+
+    for (let inProgressEvent of primaryInProgressEvents) {
         console.log("looking at in progress event")
-        console.log(duration)
-        minutesPerType[TYPES.indexOf(inProgressEvent.type)] += duration / 60 / 1000;
+        console.log(durationMinutes)
+        minutesPerType[TYPES.indexOf(inProgressEvent.type)] +=
+          durationMinutes / primaryInProgressEvents.length ;
     }
-    // TODO: from the last ts to this ts, record all time spent.
+
     if (eventChange.type == EVENT_CHANGE.EVENT_START) {
       inProgressEvents.add(eventChange.event);
     } else if (eventChange.type == EVENT_CHANGE.EVENT_END) {
@@ -182,26 +200,6 @@ async function writeToSheet() {
       day.setDate(day.getDate() + 1);
     }
   }
-
-  /*let dayEvents : CalendarEvent[] = [];
-
-  for (let event of events) {
-    const eventStartDay = new Date(event.start);
-    eventStartDay.setHours(0, 0, 0);
-    // Advance to a new day if needed.
-    while(eventStartDay.getTime() != day.getTime()) {
-      // Make sure to copy date so we don't end up mutating it later.
-      days.push(new Day(new Date(day.getTime()), dayEvents));
-      dayEvents = [];
-      day.setDate(day.getDate() + 1);
-      // Skip weekends.
-      // TODO - skip holidays.
-      // Note: we don't push an empty |dayEvents| in these cases.
-      while (day.getDay() == 0 || day.getDay() == 6)
-        day.setDate(day.getDate() + 1);
-    }
-    dayEvents.push(event);
-  }*/
 
   const labelRow = ["Day"].concat(TYPES);
   valueRange.values.push(labelRow);
