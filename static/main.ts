@@ -71,7 +71,6 @@ async function updateSigninStatus(isSignedIn: boolean) {
     if (isSignedIn) {
         authorizeButton.style.display = 'none';
         signoutButton.style.display = 'block';
-        //console.log(JSON.stringify(await getEvents()));
         writeToSheet();
     } else {
         authorizeButton.style.display = 'block';
@@ -117,22 +116,74 @@ async function writeToSheet() {
     values: [],
   }
   const events = await getEvents();
-  console.log(events);
 
-  // TODO - maybe tiebreak on duration?
-  events.sort((a, b) => {
-    let delta = a.start.getTime() - b.start.getTime();
-    if (delta == 0)
-      return a.duration - b.duration;
-    return delta;
+  enum EVENT_CHANGE {
+      EVENT_START,
+      EVENT_END,
+  }
+
+  interface EventChange {
+    ts: Date,
+    type: EVENT_CHANGE,
+    event: CalendarEvent
+  }
+
+  const eventChanges : EventChange[] = [];
+  for (let event of events) {
+      eventChanges.push({
+        ts: event.start,
+        type: EVENT_CHANGE.EVENT_START,
+        event:event
+      });
+      eventChanges.push({
+        ts: new Date(event.start.getTime() + event.duration),
+        type: EVENT_CHANGE.EVENT_END,
+        event:event,
+    });
+  }
+
+  eventChanges.sort((a : EventChange, b : EventChange) => {
+    return a.ts.getTime() - b.ts.getTime();
   })
 
-  const days = [];
+  console.log("EVENT CHANGES")
+  console.log(eventChanges)
+
+  const days : Day[] = [];
   const day = new Date(events[0].start);
   day.setHours(0, 0, 0);
-  // const inProgressEvents : Set<CalendarEvent> = new Set();
+  const inProgressEvents : Set<CalendarEvent> = new Set();
+  let ts = day;
 
-  let dayEvents : CalendarEvent[] = [];
+  let minutesPerType: number[] = new Array(TYPES.length).fill(0);
+
+  for (let eventChange of eventChanges) {
+    console.log("CURRENT EVENTS");
+    console.log(inProgressEvents);
+    const duration = eventChange.ts.getTime() - ts.getTime();
+
+    for (let inProgressEvent of inProgressEvents.values()) {
+        console.log("looking at in progress event")
+        console.log(duration)
+        minutesPerType[TYPES.indexOf(inProgressEvent.type)] += duration / 60 / 1000;
+    }
+    // TODO: from the last ts to this ts, record all time spent.
+    if (eventChange.type == EVENT_CHANGE.EVENT_START) {
+      inProgressEvents.add(eventChange.event);
+    } else if (eventChange.type == EVENT_CHANGE.EVENT_END) {
+      inProgressEvents.delete(eventChange.event)
+    }
+    ts = eventChange.ts;
+    const tsDay = new Date(ts);
+    tsDay.setHours(0, 0, 0);
+    if (tsDay.getTime() != day.getTime()) {
+      days.push(new Day(new Date(day), minutesPerType));
+      minutesPerType = new Array(TYPES.length).fill(0);
+      day.setDate(day.getDate() + 1);
+    }
+  }
+
+  /*let dayEvents : CalendarEvent[] = [];
 
   for (let event of events) {
     const eventStartDay = new Date(event.start);
@@ -150,10 +201,7 @@ async function writeToSheet() {
         day.setDate(day.getDate() + 1);
     }
     dayEvents.push(event);
-  }
-
-  console.log("LEFTOVER EVENTS");
-  console.log(events);
+  }*/
 
   const labelRow = ["Day"].concat(TYPES);
   valueRange.values.push(labelRow);
