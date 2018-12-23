@@ -1,6 +1,7 @@
 import { CalendarEvent } from './calendar_event.js'
 import { TYPES } from './constants.js'
 import { Day } from './day.js'
+import * as Plotly from './plotly.js';
 
 const CLIENT_ID = "960408234665-mr7v9joc0ckj65eju460e04mji08dsd7.apps.googleusercontent.com";
 const API_KEY = "AIzaSyDZ2rBkT9mfS-zSrkovKw74hd_HmNBSahQ";
@@ -96,11 +97,21 @@ function handleSignoutClick() {
 
 const SHEET_ID = "1iHkcf56qpi0BtK2L5FFFKO3n5Ph1uJrFiaLNGzwZj68";
 const RANGE = "A:Z";
-//const USERNAME = "tdresser";
 
+function getDurationOverlappingWorkDay(start:Date, end:Date, day:Date) {
+  const startOfDay = new Date(day);
+  startOfDay.setHours(9, 0, 0);
+  const endOfDay = new Date(day);
+  endOfDay.setHours(17, 0, 0);
+  const startTime = Math.max(startOfDay.getTime(), start.getTime());
+  const endTime = Math.min(endOfDay.getTime(), end.getTime());
 
+  // No overlap.
+  if (endTime - startTime < 0)
+    return 0;
+  return endTime - startTime;
+}
 
-// TODO - only things I accepted.
 // TODO - split out recurring.
 
 async function writeToSheet() {
@@ -115,6 +126,19 @@ async function writeToSheet() {
     majorDimension: 'ROWS',
     values: [],
   }
+
+  var data = [
+    {
+      x: ['giraffes', 'orangutans', 'monkeys'],
+      y: [20, 14, 23],
+      type: 'bar'
+    }
+  ];
+
+  Plotly.newPlot('myDiv', data);
+
+  return;
+
   const events = await getEvents();
 
   enum EVENT_CHANGE {
@@ -158,9 +182,6 @@ async function writeToSheet() {
   let minutesPerType: number[] = new Array(TYPES.length).fill(0);
 
   for (let eventChange of eventChanges) {
-    console.log("CURRENT EVENTS");
-    console.log(Array.from(inProgressEvents));
-
     let primaryInProgressEvents = Array.from(inProgressEvents);
     const minInProgressDuration =
       primaryInProgressEvents.reduce((min, event) => {
@@ -176,8 +197,7 @@ async function writeToSheet() {
     console.log("primary in progress")
     console.log(primaryInProgressEvents)
 
-    const durationMinutes =
-      (eventChange.ts.getTime() - ts.getTime()) / 60 / 1000;
+    const durationMinutes = getDurationOverlappingWorkDay(ts, eventChange.ts, day) / 60 / 1000;
 
     for (let inProgressEvent of primaryInProgressEvents) {
         console.log("looking at in progress event")
@@ -251,8 +271,8 @@ async function getEvents() {
         timeMax: endDate.toISOString(),
         showDeleted: false,
         singleEvents: true,
-        //maxResults: 1000000,
-        maxResults: 100,
+        maxResults: 1000000,
+        //maxResults: 100,
         orderBy: 'startTime',
     });
 
@@ -261,6 +281,7 @@ async function getEvents() {
 
     const items = response.result.items.filter(
         (e : any) => e.transparency != "transparent");
+
     for (const item of items) {
         let start = item.start.dateTime;
         if (!start)
@@ -276,16 +297,13 @@ async function getEvents() {
         item.attendees = item.attendees.filter(
             (attendee: any) => !attendee.resource && !attendee.self)
 
-        const oneOnOneAttendee = item.attendees.length == 1 ? item.attendees[0].displayName : null;
-
-        if (item.attendees.length) {
-            events.push(new CalendarEvent(
-                item.summary,
-                parseDate(start),
-                parseDate(end),
-                oneOnOneAttendee,
-            ));
-        }
+        events.push(new CalendarEvent(
+            item.summary,
+            parseDate(start),
+            parseDate(end),
+            item.attendees.length,
+            item.recurringEventId != null,
+        ));
     };
     return events;
 }

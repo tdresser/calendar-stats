@@ -1,4 +1,4 @@
-import { TYPES, TYPE_NON_MEETING } from './constants.js';
+import { TYPES, TYPE_UNBOOKED } from './constants.js';
 
 export class Day {
     day: Date;
@@ -12,14 +12,16 @@ export class Day {
         totalMeetingTime += this.minutesPerType[typeId];
       }
 
-      if (totalMeetingTime > 8 * 60)
+      if (totalMeetingTime > 8 * 60) {
+        debugger;
         throw("Too much total meeting time");
+      }
 
       let totalNonMeetingTime = 8*60 - totalMeetingTime;
       if (totalNonMeetingTime < 0)
         totalNonMeetingTime = 0;
 
-      this.minutesPerType[TYPES.indexOf(TYPE_NON_MEETING)] = totalNonMeetingTime;
+      this.minutesPerType[TYPES.indexOf(TYPE_UNBOOKED)] = totalNonMeetingTime;
     }
 
     toRow() {
