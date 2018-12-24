@@ -4,9 +4,10 @@ import { Day } from './day.js'
 
 const CLIENT_ID = "960408234665-mr7v9joc0ckj65eju460e04mji08dsd7.apps.googleusercontent.com";
 const API_KEY = "AIzaSyDZ2rBkT9mfS-zSrkovKw74hd_HmNBSahQ";
+const CALENDAR_ID = "primary";
 
-let authorizeButton : HTMLElement;
-let signoutButton : HTMLElement;
+let authorizeButton: HTMLElement;
+let signoutButton: HTMLElement;
 
 // Array of API discovery doc URLs for APIs used by the quickstart
 const DISCOVERY_DOCS = [
@@ -24,11 +25,11 @@ const SCOPES = "https://www.googleapis.com/auth/calendar.readonly https://www.go
 function main() {
     let authorizeButtonNullable = document.getElementById('authorize_button');
     if (authorizeButtonNullable == null)
-      throw('No authorize button found.')
+        throw ('No authorize button found.')
     authorizeButton = authorizeButtonNullable;
     let signoutButtonNullable = document.getElementById('signout_button');
     if (signoutButtonNullable == null)
-      throw('No signout button found.')
+        throw ('No signout button found.')
     signoutButton = signoutButtonNullable;
 
     // @ts-ignore
@@ -63,6 +64,31 @@ function initClient() {
     });
 }
 
+function chartData(days : Day[]) {
+    const dates = days.map(day => day.day);
+
+    interface PlotlySeries {
+        x: Date[],
+        y: number[],
+        name: string,
+        type: string,
+    }
+    const data : PlotlySeries[] = [];
+
+    for (let type_index = 0; type_index < TYPES.length; ++type_index) {
+        const ys = days.map(day => day.minutesPerType[type_index]);
+        data.push({
+            x: dates,
+            y: ys,
+            name: TYPES[type_index],
+            type: "bar",
+        });
+    }
+
+    // @ts-ignore
+    Plotly.newPlot('plot', data, {barmode:'stack'});
+}
+
 /**
  *  Called when the signed in status changes, to update the UI
  *  appropriately. After a sign-in, the API is called.
@@ -71,7 +97,10 @@ async function updateSigninStatus(isSignedIn: boolean) {
     if (isSignedIn) {
         authorizeButton.style.display = 'none';
         signoutButton.style.display = 'block';
-        writeToSheet();
+        const events = await getEvents();
+        const days = eventsToDaySummaries(events);
+        writeToSheet(days);
+        chartData(days);
     } else {
         authorizeButton.style.display = 'block';
         signoutButton.style.display = 'none';
@@ -97,147 +126,130 @@ function handleSignoutClick() {
 const SHEET_ID = "1iHkcf56qpi0BtK2L5FFFKO3n5Ph1uJrFiaLNGzwZj68";
 const RANGE = "A:Z";
 
-function getDurationOverlappingWorkDay(start:Date, end:Date, day:Date) {
-  const startOfDay = new Date(day);
-  startOfDay.setHours(9, 0, 0);
-  const endOfDay = new Date(day);
-  endOfDay.setHours(17, 0, 0);
-  const startTime = Math.max(startOfDay.getTime(), start.getTime());
-  const endTime = Math.min(endOfDay.getTime(), end.getTime());
+function getDurationOverlappingWorkDay(start: Date, end: Date, day: Date) {
+    const startOfDay = new Date(day);
+    startOfDay.setHours(9, 0, 0);
+    const endOfDay = new Date(day);
+    endOfDay.setHours(17, 0, 0);
+    const startTime = Math.max(startOfDay.getTime(), start.getTime());
+    const endTime = Math.min(endOfDay.getTime(), end.getTime());
 
-  // No overlap.
-  if (endTime - startTime < 0)
-    return 0;
-  return endTime - startTime;
+    // No overlap.
+    if (endTime - startTime < 0)
+        return 0;
+    return endTime - startTime;
 }
 
-async function writeToSheet() {
-  console.log("writeToSheet")
-  // @ts-ignore
-  const valueRange : {
-      range: string,
-      majorDimension: string,
-      values: string[][]
-    } = {
-    range: RANGE,
-    majorDimension: 'ROWS',
-    values: [],
-  }
-
-  const data = [
-    {
-      x: ['giraffes', 'orangutans', 'monkeys'],
-      y: [20, 14, 23],
-      type: 'bar'
+function eventsToDaySummaries(events: CalendarEvent[]): Day[] {
+    enum EVENT_CHANGE {
+        EVENT_START,
+        EVENT_END,
     }
-  ];
-  console.log(data);
 
-  // @ts-ignore
-  Plotly.newPlot('plot', data);
-  return;
+    interface EventChange {
+        ts: Date,
+        type: EVENT_CHANGE,
+        event: CalendarEvent
+    }
 
-  const events = await getEvents();
+    const eventChanges: EventChange[] = [];
+    for (let event of events) {
+        eventChanges.push({
+            ts: event.start,
+            type: EVENT_CHANGE.EVENT_START,
+            event: event
+        });
+        eventChanges.push({
+            ts: new Date(event.start.getTime() + event.duration),
+            type: EVENT_CHANGE.EVENT_END,
+            event: event,
+        });
+    }
 
-  enum EVENT_CHANGE {
-      EVENT_START,
-      EVENT_END,
-  }
-
-  interface EventChange {
-    ts: Date,
-    type: EVENT_CHANGE,
-    event: CalendarEvent
-  }
-
-  const eventChanges : EventChange[] = [];
-  for (let event of events) {
-      eventChanges.push({
-        ts: event.start,
-        type: EVENT_CHANGE.EVENT_START,
-        event:event
-      });
-      eventChanges.push({
-        ts: new Date(event.start.getTime() + event.duration),
-        type: EVENT_CHANGE.EVENT_END,
-        event:event,
-    });
-  }
-
-  eventChanges.sort((a : EventChange, b : EventChange) => {
-    return a.ts.getTime() - b.ts.getTime();
-  })
-
-  const days : Day[] = [];
-  const day = new Date(events[0].start);
-  day.setHours(0, 0, 0);
-  const inProgressEvents : Set<CalendarEvent> = new Set();
-  let ts = day;
-
-  let minutesPerType: number[] = new Array(TYPES.length).fill(0);
-
-  for (let eventChange of eventChanges) {
-    let primaryInProgressEvents = Array.from(inProgressEvents);
-    const minInProgressDuration =
-      primaryInProgressEvents.reduce((min, event) => {
-        return Math.min(event.duration, min);
-      }, Infinity);
-
-    primaryInProgressEvents = primaryInProgressEvents.filter(event => {
-        return event.duration == minInProgressDuration
+    eventChanges.sort((a: EventChange, b: EventChange) => {
+        return a.ts.getTime() - b.ts.getTime();
     })
 
-    const durationMinutes = getDurationOverlappingWorkDay(ts, eventChange.ts, day) / 60 / 1000;
+    const days: Day[] = [];
+    const day = new Date(events[0].start);
+    day.setHours(0, 0, 0);
+    const inProgressEvents: Set<CalendarEvent> = new Set();
+    let ts = day;
 
-    for (let inProgressEvent of primaryInProgressEvents) {
-        minutesPerType[TYPES.indexOf(inProgressEvent.type)] +=
-          durationMinutes / primaryInProgressEvents.length ;
+    let minutesPerType: number[] = new Array(TYPES.length).fill(0);
+
+    for (let eventChange of eventChanges) {
+        let primaryInProgressEvents = Array.from(inProgressEvents);
+        const minInProgressDuration =
+            primaryInProgressEvents.reduce((min, event) => {
+                return Math.min(event.duration, min);
+            }, Infinity);
+
+        primaryInProgressEvents = primaryInProgressEvents.filter(event => {
+            return event.duration == minInProgressDuration
+        })
+
+        const durationMinutes = getDurationOverlappingWorkDay(ts, eventChange.ts, day) / 60 / 1000;
+
+        for (let inProgressEvent of primaryInProgressEvents) {
+            minutesPerType[TYPES.indexOf(inProgressEvent.type)] +=
+                durationMinutes / primaryInProgressEvents.length;
+        }
+
+        if (eventChange.type == EVENT_CHANGE.EVENT_START) {
+            inProgressEvents.add(eventChange.event);
+        } else if (eventChange.type == EVENT_CHANGE.EVENT_END) {
+            inProgressEvents.delete(eventChange.event)
+        }
+        ts = eventChange.ts;
+        const tsDay = new Date(ts);
+        tsDay.setHours(0, 0, 0);
+        if (tsDay.getTime() != day.getTime()) {
+            if (day.getDay() != 0 && day.getDay() != 6)
+                days.push(new Day(new Date(day), minutesPerType));
+            minutesPerType = new Array(TYPES.length).fill(0);
+            day.setDate(day.getDate() + 1);
+        }
+    }
+    return days;
+}
+
+async function writeToSheet(days: Day[]) {
+    console.log("writeToSheet")
+
+    const valueRange: {
+        range: string,
+        majorDimension: string,
+        values: string[][]
+    } = {
+        range: RANGE,
+        majorDimension: 'ROWS',
+        values: [],
     }
 
-    if (eventChange.type == EVENT_CHANGE.EVENT_START) {
-      inProgressEvents.add(eventChange.event);
-    } else if (eventChange.type == EVENT_CHANGE.EVENT_END) {
-      inProgressEvents.delete(eventChange.event)
+    const labelRow = ["Day"].concat(TYPES);
+    valueRange.values.push(labelRow);
+    for (const day of days) {
+        valueRange.values.push(day.toRow());
     }
-    ts = eventChange.ts;
-    const tsDay = new Date(ts);
-    tsDay.setHours(0, 0, 0);
-    if (tsDay.getTime() != day.getTime()) {
-      if (day.getDay() != 0 && day.getDay() != 6)
-        days.push(new Day(new Date(day), minutesPerType));
-      minutesPerType = new Array(TYPES.length).fill(0);
-      day.setDate(day.getDate() + 1);
-    }
-  }
 
-  const labelRow = ["Day"].concat(TYPES);
-  valueRange.values.push(labelRow);
-  for (const day of days) {
-    valueRange.values.push(day.toRow());
-  }
+    console.log("about to clear")
+    // @ts-ignore
+    let response = await gapi.client.sheets.spreadsheets.values.clear({
+        spreadsheetId: SHEET_ID,
+        range: RANGE,
+    }, {
+            spreadsheetId: SHEET_ID,
+            //clearedRange: RANGE,
+        });
 
-  console.log("about to clear")
-  // @ts-ignore
-  let response = await gapi.client.sheets.spreadsheets.values.clear({
-    spreadsheetId: SHEET_ID,
-    range: RANGE,
-  },{
-    spreadsheetId: SHEET_ID,
-    //clearedRange: RANGE,
-  });
-
-  console.log("RANGE: " + RANGE);
-  console.log(valueRange);
-
-  // @ts-ignore
-  response = await gapi.client.sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID,
-      range: RANGE,
-      valueInputOption: "USER_ENTERED",
-  },
-  valueRange);
-
-  console.log(response.result);
+    // @ts-ignore
+    response = await gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: RANGE,
+        valueInputOption: "USER_ENTERED",
+    },
+        valueRange);
 };
 
 function parseDate(dateString: string): Date {
@@ -246,30 +258,37 @@ function parseDate(dateString: string): Date {
     return new Date(parts.join(' '));
 }
 
+async function getColors() {
+    //@ts-ignore
+    let response = await gapi.client.calendar.colors.get({
+        calendarId: CALENDAR_ID
+    });
+    return await response.result.calendar;
+}
+
 async function getEvents() {
     const events = [];
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 365);
     const endDate = new Date();
-    const calendarId = 'primary';
+
+    const colors = await getColors();
+    console.log(colors);
 
     //@ts-ignore
     const response = await gapi.client.calendar.events.list({
-        calendarId,
+        calendarId: CALENDAR_ID,
         timeMin: startDate.toISOString(),
         timeMax: endDate.toISOString(),
         showDeleted: false,
         singleEvents: true,
-        //maxResults: 1000000,
-        maxResults: 100,
+        maxResults: 1000000,
+        //maxResults: 100,
         orderBy: 'startTime',
     });
 
-    console.log("response");
-    console.log(response);
-
     const items = response.result.items.filter(
-        (e : any) => e.transparency != "transparent");
+        (e: any) => e.transparency != "transparent");
 
     for (const item of items) {
         let start = item.start.dateTime;
