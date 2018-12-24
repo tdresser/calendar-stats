@@ -15,3 +15,13 @@ export const TYPES = [
     TYPE_FOCUS_NON_RECURRING,
     TYPE_UNBOOKED,
 ];
+
+export const TYPE_COLORS = [
+    17,// #b99aff
+    2, // #f83a22
+    7, // #16a765
+    4, // #ff7537
+    13,// #9fe1e7
+    14,// #9fc6e7
+    18,// #c2c2c2
+]

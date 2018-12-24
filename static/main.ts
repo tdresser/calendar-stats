@@ -1,5 +1,5 @@
 import { CalendarEvent } from './calendar_event.js'
-import { TYPES } from './constants.js'
+import { TYPES, TYPE_COLORS } from './constants.js'
 import { Day } from './day.js'
 
 const CLIENT_ID = "960408234665-mr7v9joc0ckj65eju460e04mji08dsd7.apps.googleusercontent.com";
@@ -64,7 +64,19 @@ function initClient() {
     });
 }
 
-function chartData(days : Day[]) {
+function hexToRGB(hex : string) : string {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
+async function chartData(days : Day[]) {
+    const colors = await getColors();
+    console.log(colors);
+    console.log(Object.values(colors).map((c:any) => c.background));
+    console.log(TYPE_COLORS);
+
     const dates = days.map(day => day.day);
 
     interface PlotlySeries {
@@ -72,6 +84,9 @@ function chartData(days : Day[]) {
         y: number[],
         name: string,
         type: string,
+        marker: {
+            color: string,
+        }
     }
     const data : PlotlySeries[] = [];
 
@@ -82,6 +97,9 @@ function chartData(days : Day[]) {
             y: ys,
             name: TYPES[type_index],
             type: "bar",
+            marker: {
+                color: hexToRGB(colors[TYPE_COLORS[type_index]].background),
+            }
         });
     }
 
@@ -263,6 +281,7 @@ async function getColors() {
     let response = await gapi.client.calendar.colors.get({
         calendarId: CALENDAR_ID
     });
+
     return await response.result.calendar;
 }
 
@@ -272,9 +291,6 @@ async function getEvents() {
     startDate.setDate(startDate.getDate() - 365);
     const endDate = new Date();
 
-    const colors = await getColors();
-    console.log(colors);
-
     //@ts-ignore
     const response = await gapi.client.calendar.events.list({
         calendarId: CALENDAR_ID,
@@ -282,8 +298,8 @@ async function getEvents() {
         timeMax: endDate.toISOString(),
         showDeleted: false,
         singleEvents: true,
-        maxResults: 1000000,
-        //maxResults: 100,
+        //maxResults: 1000000,
+        maxResults: 100,
         orderBy: 'startTime',
     });
 
