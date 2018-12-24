@@ -64,24 +64,46 @@ function initClient() {
     });
 }
 
-function hexToRGB(hex : string) : string {
+function hexToRGB(hex: string): string {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
     const b = parseInt(hex.slice(5, 7), 16);
     return `rgb(${r}, ${g}, ${b})`;
 }
 
-/*function daysToWeeks(days:Day[]) {
+function getStartOfWeek(date: Date): Date {
+    const x = new Date(date);
+    x.setHours(0, 0, 0);
+    x.setDate(x.getDate() - x.getDay());
+    return x;
+}
 
-}*/
+function aggregateByWeek(aggregates: Aggregate[]) {
+    console.log(aggregateByWeek);
+    const weekly: Aggregate[] = [];
+    let currentWeekStart = getStartOfWeek(aggregates[0].start);
+    let minutesPerType = new Array(TYPES.length).fill(0);
 
-async function chartData(days : Aggregate[]) {
+    for (let aggregate of aggregates) {
+        const aggregateWeekStart = getStartOfWeek(aggregate.start);
+        if (aggregateWeekStart.getTime() != currentWeekStart.getTime()) {
+            weekly.push(new Aggregate(
+                new Date(currentWeekStart), minutesPerType.slice()));
+            currentWeekStart = aggregateWeekStart;
+            minutesPerType.fill(0);
+        }
+        for (let typeIndex = 0; typeIndex < TYPES.length; ++typeIndex) {
+            minutesPerType[typeIndex] += aggregate.minutesPerType[typeIndex];
+        }
+    }
+    weekly.push(new Aggregate(new Date(currentWeekStart), minutesPerType));
+    console.log(weekly);
+    return weekly;
+}
+
+async function chartData(aggregates: Aggregate[], divId:string) {
     const colors = await getColors();
-    console.log(colors);
-    console.log(Object.values(colors).map((c:any) => c.background));
-    console.log(TYPE_COLORS);
-
-    const dates = days.map(day => day.start);
+    const dates = aggregates.map(day => day.start);
 
     interface PlotlySeries {
         x: Date[],
@@ -92,10 +114,10 @@ async function chartData(days : Aggregate[]) {
             color: string,
         }
     }
-    const data : PlotlySeries[] = [];
+    const data: PlotlySeries[] = [];
 
     for (let type_index = 0; type_index < TYPES.length; ++type_index) {
-        const ys = days.map(day => day.minutesPerType[type_index]);
+        const ys = aggregates.map(day => day.minutesPerType[type_index]);
         data.push({
             x: dates,
             y: ys,
@@ -108,7 +130,7 @@ async function chartData(days : Aggregate[]) {
     }
 
     // @ts-ignore
-    Plotly.newPlot('plot', data, {barmode:'stack'});
+    Plotly.newPlot(divId, data, { barmode: 'stack' });
 }
 
 /**
@@ -121,8 +143,9 @@ async function updateSigninStatus(isSignedIn: boolean) {
         signoutButton.style.display = 'block';
         const events = await getEvents();
         const days = eventsToAggregates(events);
-        writeToSheet(days);
-        chartData(days);
+        //writeToSheet(days);
+        chartData(days, "day_plot");
+        chartData(aggregateByWeek(days), "week_plot")
     } else {
         authorizeButton.style.display = 'block';
         signoutButton.style.display = 'none';
@@ -239,9 +262,8 @@ function eventsToAggregates(events: CalendarEvent[]): Aggregate[] {
     return aggregates;
 }
 
+//@ts-ignore
 async function writeToSheet(days: Aggregate[]) {
-    console.log("writeToSheet")
-
     const valueRange: {
         range: string,
         majorDimension: string,
@@ -258,7 +280,6 @@ async function writeToSheet(days: Aggregate[]) {
         valueRange.values.push(day.toRow());
     }
 
-    console.log("about to clear")
     // @ts-ignore
     let response = await gapi.client.sheets.spreadsheets.values.clear({
         spreadsheetId: SHEET_ID,
@@ -305,8 +326,8 @@ async function getEvents() {
         timeMax: endDate.toISOString(),
         showDeleted: false,
         singleEvents: true,
-        //maxResults: 1000000,
-        maxResults: 100,
+        maxResults: 1000000,
+        //maxResults: 100,
         orderBy: 'startTime',
     });
 
