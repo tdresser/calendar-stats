@@ -11,6 +11,15 @@ handlers:
   http_headers:
     Access-Control-Allow-Origin: '*'
 
+# TODO - single static file?
+- url: /plotly
+  static_dir: node_modules/plotly.js/dist/
+  secure: always
+  # Use 0 for local development. deploy.py changes this to 365d with perma-urls
+  expiration: "0"
+  http_headers:
+    Access-Control-Allow-Origin: '*'
+
 - url: /manifest.json
   static_files: manifest.json
   upload: manifest.json

@@ -1,7 +1,6 @@
 import { CalendarEvent } from './calendar_event.js'
 import { TYPES } from './constants.js'
 import { Day } from './day.js'
-//import * as Plotly from 'plotly.js';
 
 const CLIENT_ID = "960408234665-mr7v9joc0ckj65eju460e04mji08dsd7.apps.googleusercontent.com";
 const API_KEY = "AIzaSyDZ2rBkT9mfS-zSrkovKw74hd_HmNBSahQ";
@@ -125,18 +124,18 @@ async function writeToSheet() {
     values: [],
   }
 
-  /*var data = [
+  const data = [
     {
       x: ['giraffes', 'orangutans', 'monkeys'],
       y: [20, 14, 23],
       type: 'bar'
     }
   ];
+  console.log(data);
 
   // @ts-ignore
-  Plotly.newPlot('myDiv', data);*/
-
-  //return;
+  Plotly.newPlot('plot', data);
+  return;
 
   const events = await getEvents();
 

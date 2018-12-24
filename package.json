@@ -21,5 +21,8 @@
   "homepage": "https://github.com/tdresser/calendar-stats#readme",
   "devDependencies": {
     "typescript": "^3.2.2"
+  },
+  "dependencies": {
+    "plotly.js": "^1.43.1"
   }
 }
