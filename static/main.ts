@@ -1,6 +1,6 @@
 import { CalendarEvent } from './calendar_event.js'
 import { TYPES, TYPE_COLORS } from './constants.js'
-import { Day } from './day.js'
+import { Aggregate } from './aggregate.js'
 
 const CLIENT_ID = "960408234665-mr7v9joc0ckj65eju460e04mji08dsd7.apps.googleusercontent.com";
 const API_KEY = "AIzaSyDZ2rBkT9mfS-zSrkovKw74hd_HmNBSahQ";
@@ -71,13 +71,17 @@ function hexToRGB(hex : string) : string {
     return `rgb(${r}, ${g}, ${b})`;
 }
 
-async function chartData(days : Day[]) {
+/*function daysToWeeks(days:Day[]) {
+
+}*/
+
+async function chartData(days : Aggregate[]) {
     const colors = await getColors();
     console.log(colors);
     console.log(Object.values(colors).map((c:any) => c.background));
     console.log(TYPE_COLORS);
 
-    const dates = days.map(day => day.day);
+    const dates = days.map(day => day.start);
 
     interface PlotlySeries {
         x: Date[],
@@ -116,7 +120,7 @@ async function updateSigninStatus(isSignedIn: boolean) {
         authorizeButton.style.display = 'none';
         signoutButton.style.display = 'block';
         const events = await getEvents();
-        const days = eventsToDaySummaries(events);
+        const days = eventsToAggregates(events);
         writeToSheet(days);
         chartData(days);
     } else {
@@ -158,7 +162,7 @@ function getDurationOverlappingWorkDay(start: Date, end: Date, day: Date) {
     return endTime - startTime;
 }
 
-function eventsToDaySummaries(events: CalendarEvent[]): Day[] {
+function eventsToAggregates(events: CalendarEvent[]): Aggregate[] {
     enum EVENT_CHANGE {
         EVENT_START,
         EVENT_END,
@@ -188,7 +192,7 @@ function eventsToDaySummaries(events: CalendarEvent[]): Day[] {
         return a.ts.getTime() - b.ts.getTime();
     })
 
-    const days: Day[] = [];
+    const aggregates: Aggregate[] = [];
     const day = new Date(events[0].start);
     day.setHours(0, 0, 0);
     const inProgressEvents: Set<CalendarEvent> = new Set();
@@ -224,15 +228,18 @@ function eventsToDaySummaries(events: CalendarEvent[]): Day[] {
         tsDay.setHours(0, 0, 0);
         if (tsDay.getTime() != day.getTime()) {
             if (day.getDay() != 0 && day.getDay() != 6)
-                days.push(new Day(new Date(day), minutesPerType));
+                aggregates.push(new Aggregate(new Date(day), minutesPerType));
             minutesPerType = new Array(TYPES.length).fill(0);
             day.setDate(day.getDate() + 1);
         }
     }
-    return days;
+    for (let aggregate of aggregates) {
+        aggregate.addTotalNonMeetingTime();
+    }
+    return aggregates;
 }
 
-async function writeToSheet(days: Day[]) {
+async function writeToSheet(days: Aggregate[]) {
     console.log("writeToSheet")
 
     const valueRange: {

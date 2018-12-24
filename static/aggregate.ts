@@ -1,12 +1,14 @@
 import { TYPES, TYPE_UNBOOKED } from './constants.js';
 
-export class Day {
-    day: Date;
+export class Aggregate {
+    start: Date;
     minutesPerType: number[];
-    constructor(day : Date, minutesPerType : number[]) {
-      this.day = day;
+    constructor(start : Date, minutesPerType : number[]) {
+      this.start = start;
       this.minutesPerType = minutesPerType;
+    }
 
+    addTotalNonMeetingTime() {
       let totalMeetingTime = 0;
       for (let typeId = 0; typeId < TYPES.length; ++typeId) {
         totalMeetingTime += this.minutesPerType[typeId];
@@ -26,7 +28,7 @@ export class Day {
 
     toRow() {
       return [
-        this.day.toDateString()].concat(
+        this.start.toDateString()].concat(
           this.minutesPerType.map(x => x.toString()));
     }
   }
