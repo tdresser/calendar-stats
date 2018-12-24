@@ -133,6 +133,14 @@ async function chartData(aggregates: Aggregate[], divId:string) {
     Plotly.newPlot(divId, data, { barmode: 'stack' });
 }
 
+async function colorizeEvents(events:CalendarEvent[]) {
+    const promises = [];
+    for (let event of events) {
+        promises.push(event.setToTargetColorIfNeeded());
+    }
+    await Promise.all(promises);
+}
+
 /**
  *  Called when the signed in status changes, to update the UI
  *  appropriately. After a sign-in, the API is called.
@@ -146,6 +154,7 @@ async function updateSigninStatus(isSignedIn: boolean) {
         //writeToSheet(days);
         chartData(days, "day_plot");
         chartData(aggregateByWeek(days), "week_plot")
+        await colorizeEvents(events);
     } else {
         authorizeButton.style.display = 'block';
         signoutButton.style.display = 'none';
@@ -326,13 +335,15 @@ async function getEvents() {
         timeMax: endDate.toISOString(),
         showDeleted: false,
         singleEvents: true,
-        maxResults: 1000000,
-        //maxResults: 100,
+        //maxResults: 1000000,
+        maxResults: 100,
         orderBy: 'startTime',
     });
 
     const items = response.result.items.filter(
         (e: any) => e.transparency != "transparent");
+
+    console.log(items);
 
     for (const item of items) {
         let start = item.start.dateTime;
@@ -355,6 +366,8 @@ async function getEvents() {
             parseDate(end),
             item.attendees.length,
             item.recurringEventId != null,
+            item.colorId,
+            item.id,
         ));
     };
     return events;
