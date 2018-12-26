@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/tdresser/calendar-stats#readme",
   "devDependencies": {
+    "@types/plotly.js": "^1.42.0",
     "typescript": "^3.2.2"
   },
   "dependencies": {

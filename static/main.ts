@@ -1,10 +1,9 @@
 import { CalendarEvent } from './calendar_event.js'
-import { TYPES, TYPE_COLORS } from './constants.js'
+import { TYPES, TYPE_COLORS, CALENDAR_ID } from './constants.js'
 import { Aggregate } from './aggregate.js'
 
 const CLIENT_ID = "960408234665-mr7v9joc0ckj65eju460e04mji08dsd7.apps.googleusercontent.com";
 const API_KEY = "AIzaSyDZ2rBkT9mfS-zSrkovKw74hd_HmNBSahQ";
-const CALENDAR_ID = "primary";
 
 let authorizeButton: HTMLElement;
 let signoutButton: HTMLElement;
@@ -79,7 +78,6 @@ function getStartOfWeek(date: Date): Date {
 }
 
 function aggregateByWeek(aggregates: Aggregate[]) {
-    console.log(aggregateByWeek);
     const weekly: Aggregate[] = [];
     let currentWeekStart = getStartOfWeek(aggregates[0].start);
     let minutesPerType = new Array(TYPES.length).fill(0);
@@ -97,7 +95,6 @@ function aggregateByWeek(aggregates: Aggregate[]) {
         }
     }
     weekly.push(new Aggregate(new Date(currentWeekStart), minutesPerType));
-    console.log(weekly);
     return weekly;
 }
 
@@ -134,11 +131,30 @@ async function chartData(aggregates: Aggregate[], divId:string) {
 }
 
 async function colorizeEvents(events:CalendarEvent[]) {
-    const promises = [];
-    for (let event of events) {
-        promises.push(event.setToTargetColorIfNeeded());
+    const eventsToColorize : Map<String, CalendarEvent> = new Map()
+    for (const event of events) {
+        if (event.getTargetColorId() == event.colorId)
+          continue;
+        if (!event.recurringEventId) {
+            eventsToColorize.set(event.eventId, event);
+        } else {
+            try {
+                const originalEvent =
+                    await CalendarEvent.fetchEventWithId(event.recurringEventId);
+                eventsToColorize.set(originalEvent.eventId, originalEvent);
+            } catch (e) {
+                console.log("Couldn't load original event for " + event.recurringEventId);
+                console.log(event);
+            }
+        }
     }
-    await Promise.all(promises);
+
+    const eventsToColorizeArray = Array.from(eventsToColorize.values());
+    for (let i = 0; i < eventsToColorizeArray.length; ++i) {
+        const event = eventsToColorizeArray[i];
+        await event.setToTargetColor();
+        console.log("done " + i + " / " + eventsToColorizeArray.length)
+    }
 }
 
 /**
@@ -153,8 +169,10 @@ async function updateSigninStatus(isSignedIn: boolean) {
         const days = eventsToAggregates(events);
         //writeToSheet(days);
         chartData(days, "day_plot");
-        chartData(aggregateByWeek(days), "week_plot")
+        chartData(aggregateByWeek(days), "week_plot");
+        console.log("PRE COLORIZE");
         await colorizeEvents(events);
+        console.log("POST COLORIZE")
     } else {
         authorizeButton.style.display = 'block';
         signoutButton.style.display = 'none';
@@ -307,27 +325,21 @@ async function writeToSheet(days: Aggregate[]) {
         valueRange);
 };
 
-function parseDate(dateString: string): Date {
-    let parts = dateString.split('T');
-    parts[0] = parts[0].replace(/-/g, '/');
-    return new Date(parts.join(' '));
-}
-
 async function getColors() {
     //@ts-ignore
     let response = await gapi.client.calendar.colors.get({
-        calendarId: CALENDAR_ID
+        calendarId: CALENDAR_ID,
     });
-
-    return await response.result.calendar;
+    return response.result.event;
 }
 
 async function getEvents() {
-    const events = [];
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 365);
     const endDate = new Date();
 
+    // TODO - specify fields to fetch.
+    // https://developers.google.com/calendar/performance#patch
     //@ts-ignore
     const response = await gapi.client.calendar.events.list({
         calendarId: CALENDAR_ID,
@@ -335,40 +347,12 @@ async function getEvents() {
         timeMax: endDate.toISOString(),
         showDeleted: false,
         singleEvents: true,
-        //maxResults: 1000000,
-        maxResults: 100,
+        maxResults: 10000000,
+        //maxResults: 100,
         orderBy: 'startTime',
     });
 
     const items = response.result.items.filter(
         (e: any) => e.transparency != "transparent");
-
-    console.log(items);
-
-    for (const item of items) {
-        let start = item.start.dateTime;
-        if (!start)
-            start = item.start.date;
-
-        let end = item.end.dateTime;
-        if (!end)
-            end = item.end.date;
-
-        if (!item.attendees)
-            item.attendees = [];
-
-        item.attendees = item.attendees.filter(
-            (attendee: any) => !attendee.resource && !attendee.self)
-
-        events.push(new CalendarEvent(
-            item.summary,
-            parseDate(start),
-            parseDate(end),
-            item.attendees.length,
-            item.recurringEventId != null,
-            item.colorId,
-            item.id,
-        ));
-    };
-    return events;
+    return items.map((i:any) => new CalendarEvent(i));
 }
