@@ -31,7 +31,6 @@ function main() {
         throw ('No signout button found.')
     signoutButton = signoutButtonNullable;
 
-    // @ts-ignore
     gapi.load('client:auth2', initClient);
 }
 
@@ -42,7 +41,6 @@ main();
  *  listeners.
  */
 function initClient() {
-    // @ts-ignore TODO: Figure out how to get types for gapi client libraries.
     gapi.client.init({
         apiKey: API_KEY,
         clientId: CLIENT_ID,
@@ -50,11 +48,9 @@ function initClient() {
         scope: SCOPES
     }).then(function () {
         // Listen for sign-in state changes.
-        // @ts-ignore
         gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
 
         // Handle the initial sign-in state.
-        // @ts-ignore
         updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
         authorizeButton.onclick = handleAuthClick;
         signoutButton.onclick = handleSignoutClick;
@@ -183,7 +179,6 @@ async function updateSigninStatus(isSignedIn: boolean) {
  *  Sign in the user upon button click.
  */
 function handleAuthClick() {
-    // @ts-ignore
     gapi.auth2.getAuthInstance().signIn();
 }
 
@@ -191,7 +186,6 @@ function handleAuthClick() {
  *  Sign out the user upon button click.
  */
 function handleSignoutClick() {
-    // @ts-ignore
     gapi.auth2.getAuthInstance().signOut();
 }
 
@@ -289,7 +283,7 @@ function eventsToAggregates(events: CalendarEvent[]): Aggregate[] {
     return aggregates;
 }
 
-//@ts-ignore
+// @ts-ignore (to ignore unused)
 async function writeToSheet(days: Aggregate[]) {
     const valueRange: {
         range: string,
@@ -314,7 +308,7 @@ async function writeToSheet(days: Aggregate[]) {
     }, {
             spreadsheetId: SHEET_ID,
             //clearedRange: RANGE,
-        });
+    });
 
     // @ts-ignore
     response = await gapi.client.sheets.spreadsheets.values.update({
@@ -340,7 +334,6 @@ async function getEvents() {
 
     // TODO - specify fields to fetch.
     // https://developers.google.com/calendar/performance#patch
-    //@ts-ignore
     const response = await gapi.client.calendar.events.list({
         calendarId: CALENDAR_ID,
         timeMin: startDate.toISOString(),

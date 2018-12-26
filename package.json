@@ -20,7 +20,9 @@
   },
   "homepage": "https://github.com/tdresser/calendar-stats#readme",
   "devDependencies": {
-    "@types/plotly.js": "^1.42.0",
+    "@types/gapi.auth2": "0.0.48",
+    "@types/gapi.calendar": "^3.0.3",
+    "@types/gapi.client.sheets": "^4.0.0",
     "typescript": "^3.2.2"
   },
   "dependencies": {

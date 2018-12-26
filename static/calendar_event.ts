@@ -22,7 +22,6 @@ export class CalendarEvent {
   recurringEventId: string;
 
   static async fetchEventWithId(eventId: string) {
-    // @ts-ignore
     const response = await gapi.client.calendar.events.get({
       calendarId: CALENDAR_ID,
       eventId: eventId,
