@@ -5,7 +5,6 @@ import {
   TYPE_ONE_ON_ONE_NON_RECURRING,
   TYPE_FOCUS_RECURRING,
   TYPE_FOCUS_NON_RECURRING,
-  TYPE_COLORS,
   TYPES,
   CALENDAR_ID,
 } from "./constants.js";
@@ -29,8 +28,11 @@ export class CalendarEvent {
     return new CalendarEvent(response.result);
   }
 
-  getTargetColorId() {
-    return TYPE_COLORS[TYPES.indexOf(this.type)];
+  getTargetColorId(): number {
+    const targetColorId = TYPES.get(this.type)
+    if (targetColorId === undefined)
+      throw("No color id found for type.")
+    return targetColorId;
   }
 
   static parseDate(dateString: string): Date {

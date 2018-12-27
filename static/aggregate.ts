@@ -1,18 +1,17 @@
-import { TYPES, TYPE_UNBOOKED } from './constants.js';
+import { TYPE_UNBOOKED } from './constants.js';
 
 export class Aggregate {
     start: Date;
-    minutesPerType: number[];
-    constructor(start : Date, minutesPerType : number[]) {
+    minutesPerType: Map<string, number> = new Map();
+    constructor(start : Date, minutesPerType : Map<string, number>) {
       this.start = start;
       this.minutesPerType = minutesPerType;
     }
 
     addTotalNonMeetingTime() {
-      let totalMeetingTime = 0;
-      for (let typeId = 0; typeId < TYPES.length; ++typeId) {
-        totalMeetingTime += this.minutesPerType[typeId];
-      }
+      let totalMeetingTime =
+        Array.from(this.minutesPerType.values()).reduce(
+          (s, c) => s + c);
 
       if (totalMeetingTime > 8 * 60) {
         debugger;
@@ -23,12 +22,13 @@ export class Aggregate {
       if (totalNonMeetingTime < 0)
         totalNonMeetingTime = 0;
 
-      this.minutesPerType[TYPES.indexOf(TYPE_UNBOOKED)] = totalNonMeetingTime;
+      this.minutesPerType.set(TYPE_UNBOOKED, totalNonMeetingTime);
     }
 
     toRow() {
       return [
         this.start.toDateString()].concat(
-          this.minutesPerType.map(x => x.toString()));
+          Array.from(this.minutesPerType.values()).map(
+            x => x.toString()));
     }
   }

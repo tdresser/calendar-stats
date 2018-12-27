@@ -1,5 +1,5 @@
 import { CalendarEvent } from './calendar_event.js'
-import { TYPES, TYPE_COLORS, CALENDAR_ID } from './constants.js'
+import { TYPES, CALENDAR_ID } from './constants.js'
 import { Aggregate } from './aggregate.js'
 import { TaskQueue } from './task_queue.js'
 
@@ -77,18 +77,26 @@ function getStartOfWeek(date: Date): Date {
 function aggregateByWeek(aggregates: Aggregate[]) {
     const weekly: Aggregate[] = [];
     let currentWeekStart = getStartOfWeek(aggregates[0].start);
-    let minutesPerType = new Array(TYPES.length).fill(0);
+    let minutesPerType : Map<string, number> = new Map();
 
     for (let aggregate of aggregates) {
         const aggregateWeekStart = getStartOfWeek(aggregate.start);
         if (aggregateWeekStart.getTime() != currentWeekStart.getTime()) {
             weekly.push(new Aggregate(
-                new Date(currentWeekStart), minutesPerType.slice()));
+                new Date(currentWeekStart), minutesPerType));
+            minutesPerType = new Map();
             currentWeekStart = aggregateWeekStart;
-            minutesPerType.fill(0);
         }
-        for (let typeIndex = 0; typeIndex < TYPES.length; ++typeIndex) {
-            minutesPerType[typeIndex] += aggregate.minutesPerType[typeIndex];
+        for (let type of TYPES.keys()) {
+            if (!minutesPerType.has(type))
+                minutesPerType.set(type, 0);
+
+            let aggregateValue = aggregate.minutesPerType.get(type);
+            if (!aggregateValue)
+                aggregateValue = 0;
+
+            minutesPerType.set(type,
+                minutesPerType.get(type)! + aggregateValue);
         }
     }
     weekly.push(new Aggregate(new Date(currentWeekStart), minutesPerType));
@@ -110,15 +118,15 @@ async function chartData(aggregates: Aggregate[], divId: string) {
     }
     const data: PlotlySeries[] = [];
 
-    for (let type_index = 0; type_index < TYPES.length; ++type_index) {
-        const ys = aggregates.map(day => day.minutesPerType[type_index]);
+    for (let type of TYPES.keys()) {
+        const ys = aggregates.map(day => day.minutesPerType.get(type)!);
         data.push({
             x: dates,
             y: ys,
-            name: TYPES[type_index],
+            name: type,
             type: "bar",
             marker: {
-                color: hexToRGB(colors[TYPE_COLORS[type_index]].background),
+                color: hexToRGB(colors[TYPES.get(type)].background),
             }
         });
     }
@@ -219,7 +227,7 @@ function eventsToAggregates(events: CalendarEvent[]): Aggregate[] {
     const inProgressEvents: Set<CalendarEvent> = new Set();
     let ts = day;
 
-    let minutesPerType: number[] = new Array(TYPES.length).fill(0);
+    let minutesPerType: Map<string, number> = new Map();
 
     for (let eventChange of eventChanges) {
         let primaryInProgressEvents = Array.from(inProgressEvents);
@@ -235,8 +243,12 @@ function eventsToAggregates(events: CalendarEvent[]): Aggregate[] {
         const durationMinutes = getDurationOverlappingWorkDay(ts, eventChange.ts, day) / 60 / 1000;
 
         for (let inProgressEvent of primaryInProgressEvents) {
-            minutesPerType[TYPES.indexOf(inProgressEvent.type)] +=
-                durationMinutes / primaryInProgressEvents.length;
+            if (!minutesPerType.has(inProgressEvent.type)) {
+                minutesPerType.set(inProgressEvent.type, 0);
+            }
+            minutesPerType.set(inProgressEvent.type,
+                minutesPerType.get(inProgressEvent.type)! +
+                durationMinutes / primaryInProgressEvents.length);
         }
 
         if (eventChange.type == EVENT_CHANGE.EVENT_START) {
@@ -250,7 +262,7 @@ function eventsToAggregates(events: CalendarEvent[]): Aggregate[] {
         if (tsDay.getTime() != day.getTime()) {
             if (day.getDay() != 0 && day.getDay() != 6)
                 aggregates.push(new Aggregate(new Date(day), minutesPerType));
-            minutesPerType = new Array(TYPES.length).fill(0);
+            minutesPerType = new Map();
             day.setDate(day.getDate() + 1);
         }
     }
@@ -272,7 +284,7 @@ async function writeToSheet(days: Aggregate[]) {
         values: [],
     }
 
-    const labelRow = ["Day"].concat(TYPES);
+    const labelRow = ["Day"].concat(Array.from(TYPES.keys()));
     valueRange.values.push(labelRow);
     for (const day of days) {
         valueRange.values.push(day.toRow());
