@@ -23,7 +23,7 @@
     "@types/gapi.auth2": "0.0.48",
     "@types/gapi.calendar": "^3.0.3",
     "@types/gapi.client.sheets": "^4.0.0",
-    "typescript": "^3.2.2"
+    "typescript": "^3.3.0-dev.20181222"
   },
   "dependencies": {
     "plotly.js": "^1.43.1"

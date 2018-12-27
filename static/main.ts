@@ -1,6 +1,7 @@
 import { CalendarEvent } from './calendar_event.js'
 import { TYPES, TYPE_COLORS, CALENDAR_ID } from './constants.js'
 import { Aggregate } from './aggregate.js'
+import { TaskQueue } from './task_queue.js'
 
 const CLIENT_ID = "960408234665-mr7v9joc0ckj65eju460e04mji08dsd7.apps.googleusercontent.com";
 const API_KEY = "AIzaSyDZ2rBkT9mfS-zSrkovKw74hd_HmNBSahQ";
@@ -94,7 +95,7 @@ function aggregateByWeek(aggregates: Aggregate[]) {
     return weekly;
 }
 
-async function chartData(aggregates: Aggregate[], divId:string) {
+async function chartData(aggregates: Aggregate[], divId: string) {
     const colors = await getColors();
     const dates = aggregates.map(day => day.start);
 
@@ -126,33 +127,6 @@ async function chartData(aggregates: Aggregate[], divId:string) {
     Plotly.newPlot(divId, data, { barmode: 'stack' });
 }
 
-async function colorizeEvents(events:CalendarEvent[]) {
-    const eventsToColorize : Map<String, CalendarEvent> = new Map()
-    for (const event of events) {
-        if (event.getTargetColorId() == event.colorId)
-          continue;
-        if (!event.recurringEventId) {
-            eventsToColorize.set(event.eventId, event);
-        } else {
-            try {
-                const originalEvent =
-                    await CalendarEvent.fetchEventWithId(event.recurringEventId);
-                eventsToColorize.set(originalEvent.eventId, originalEvent);
-            } catch (e) {
-                console.log("Couldn't load original event for " + event.recurringEventId);
-                console.log(event);
-            }
-        }
-    }
-
-    const eventsToColorizeArray = Array.from(eventsToColorize.values());
-    for (let i = 0; i < eventsToColorizeArray.length; ++i) {
-        const event = eventsToColorizeArray[i];
-        await event.setToTargetColor();
-        console.log("done " + i + " / " + eventsToColorizeArray.length)
-    }
-}
-
 /**
  *  Called when the signed in status changes, to update the UI
  *  appropriately. After a sign-in, the API is called.
@@ -161,14 +135,17 @@ async function updateSigninStatus(isSignedIn: boolean) {
     if (isSignedIn) {
         authorizeButton.style.display = 'none';
         signoutButton.style.display = 'block';
-        const events = await getEvents();
+        const events = [];
+        const taskQueue = new TaskQueue(10);
+        for await (const event of getEvents()) {
+            taskQueue.queueTask(() => event.setToTargetColor());
+            events.push(event);
+        };
+        events.sort((a, b) => a.start.getTime() - b.start.getTime());
         const days = eventsToAggregates(events);
         //writeToSheet(days);
         chartData(days, "day_plot");
         chartData(aggregateByWeek(days), "week_plot");
-        console.log("PRE COLORIZE");
-        await colorizeEvents(events);
-        console.log("POST COLORIZE")
     } else {
         authorizeButton.style.display = 'block';
         signoutButton.style.display = 'none';
@@ -308,7 +285,7 @@ async function writeToSheet(days: Aggregate[]) {
     }, {
             spreadsheetId: SHEET_ID,
             //clearedRange: RANGE,
-    });
+        });
 
     // @ts-ignore
     response = await gapi.client.sheets.spreadsheets.values.update({
@@ -327,25 +304,46 @@ async function getColors() {
     return response.result.event;
 }
 
-async function getEvents() {
+async function* getEvents() {
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 365);
+    startDate.setDate(startDate.getDate() - 50);
     const endDate = new Date();
+    endDate.setDate(endDate.getDate() + 0);
 
-    // TODO - specify fields to fetch.
-    // https://developers.google.com/calendar/performance#patch
-    const response = await gapi.client.calendar.events.list({
-        calendarId: CALENDAR_ID,
-        timeMin: startDate.toISOString(),
-        timeMax: endDate.toISOString(),
-        showDeleted: false,
-        singleEvents: true,
-        maxResults: 10000000,
-        //maxResults: 100,
-        orderBy: 'startTime',
-    });
+    let pageToken = null;
+    let pendingEvents: CalendarEvent[] = [];
 
-    const items = response.result.items.filter(
-        (e: any) => e.transparency != "transparent");
-    return items.map((i:any) => new CalendarEvent(i));
+    // TODO - start streaming things.
+    while (true) {
+        const request = {
+            calendarId: CALENDAR_ID,
+            timeMin: startDate.toISOString(),
+            timeMax: endDate.toISOString(),
+            showDeleted: false,
+            singleEvents: true,
+            maxResults: 100, //2500, // Max.
+            orderBy: 'startTime' as 'startTime',
+            pageToken: undefined as string | undefined,
+        }
+        if (pageToken)
+            request.pageToken = pageToken;
+
+        const promise = gapi.client.calendar.events.list(request);
+        while (true) {
+            const event = pendingEvents.pop();
+            if (!event)
+                break;
+            yield event;
+        }
+
+        const response = await promise;
+        pendingEvents =
+            response.result.items.filter(
+                e => e.transparency != "transparent").map(
+                    i => new CalendarEvent(i));
+
+        pageToken = response.result.nextPageToken;
+        if (!pageToken)
+            break;
+    }
 }

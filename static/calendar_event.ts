@@ -54,18 +54,19 @@ export class CalendarEvent {
 
     this.attendeeCount = attendees.length;
     if (this.attendeeCount == 0) {
-      if (gcalEvent.recurringEventId !== null)
+      if (gcalEvent.recurringEventId !== undefined)
         this.type = TYPE_FOCUS_RECURRING;
-      else
+      else {
         this.type = TYPE_FOCUS_NON_RECURRING;
+      }
     }
     else if (this.attendeeCount == 1) {
-      if (gcalEvent.recurringEventId !== null)
+      if (gcalEvent.recurringEventId !== undefined)
         this.type = TYPE_ONE_ON_ONE_RECURRING;
       else
         this.type = TYPE_ONE_ON_ONE_NON_RECURRING;
     } else {
-      if (gcalEvent.recurringEventId !== null)
+      if (gcalEvent.recurringEventId !== undefined)
         this.type = TYPE_MEETING_RECURRING;
       else
         this.type = TYPE_MEETING_NON_RECURRING
