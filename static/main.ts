@@ -2,6 +2,7 @@ import { CalendarEvent } from './calendar_event.js'
 import { TYPES, CALENDAR_ID } from './constants.js'
 import { Aggregate } from './aggregate.js'
 import { TaskQueue } from './task_queue.js'
+import { Charter } from './charter.js';
 
 const CLIENT_ID = "960408234665-mr7v9joc0ckj65eju460e04mji08dsd7.apps.googleusercontent.com";
 const API_KEY = "AIzaSyDZ2rBkT9mfS-zSrkovKw74hd_HmNBSahQ";
@@ -60,13 +61,6 @@ function initClient() {
     });
 }
 
-function hexToRGB(hex: string): string {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `rgb(${r}, ${g}, ${b})`;
-}
-
 function getStartOfWeek(date: Date): Date {
     const x = new Date(date);
     x.setHours(0, 0, 0);
@@ -103,39 +97,6 @@ function aggregateByWeek(aggregates: Aggregate[]) {
     return weekly;
 }
 
-async function chartData(aggregates: Aggregate[], divId: string) {
-    const colors = await getColors();
-    const dates = aggregates.map(day => day.start);
-
-    interface PlotlySeries {
-        x: Date[],
-        y: number[],
-        name: string,
-        type: string,
-        marker: {
-            color: string,
-        }
-    }
-    const data: PlotlySeries[] = [];
-
-    for (let type of TYPES.keys()) {
-        const color = hexToRGB(colors[TYPES.get(type)].background);
-        const ys = aggregates.map(day => day.minutesPerType.get(type)!);
-        data.push({
-            x: dates,
-            y: ys,
-            name: type,
-            type: "bar",
-            marker: {
-                color: color,
-            }
-        });
-    }
-
-    // @ts-ignore
-    Plotly.newPlot(divId, data, { barmode: 'stack' });
-}
-
 /**
  *  Called when the signed in status changes, to update the UI
  *  appropriately. After a sign-in, the API is called.
@@ -153,8 +114,10 @@ async function updateSigninStatus(isSignedIn: boolean) {
         events.sort((a, b) => a.start.getTime() - b.start.getTime());
         const days = eventsToAggregates(events);
         //writeToSheet(days);
-        chartData(days, "day_plot");
-        chartData(aggregateByWeek(days), "week_plot");
+        const charter = new Charter();
+        await charter.init();
+        charter.chartData(days, "day_plot");
+        charter.chartData(aggregateByWeek(days), "week_plot");
     } else {
         authorizeButton.style.display = 'block';
         signoutButton.style.display = 'none';
@@ -315,14 +278,6 @@ async function writeToSheet(days: Aggregate[]) {
     },
         valueRange);
 };
-
-async function getColors() {
-    //@ts-ignore
-    let response = await gapi.client.calendar.colors.get({
-        calendarId: CALENDAR_ID,
-    });
-    return response.result.event;
-}
 
 async function* getEvents() {
     const startDate = new Date();
