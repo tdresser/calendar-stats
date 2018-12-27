@@ -5,9 +5,12 @@ import {
   TYPE_ONE_ON_ONE_NON_RECURRING,
   TYPE_FOCUS_RECURRING,
   TYPE_FOCUS_NON_RECURRING,
+  TYPE_OOO,
   TYPES,
   CALENDAR_ID,
 } from "./constants.js";
+
+const OOO_REGEX = /.*(OOO|Holiday).*/;
 
 export class CalendarEvent {
   eventId: string;
@@ -41,6 +44,10 @@ export class CalendarEvent {
     return new Date(parts.join(' '));
   }
 
+  isOOOEvent() {
+    return this.summary.match(OOO_REGEX) !== null;
+  }
+
   constructor(gcalEvent: any) {
     this.eventId = gcalEvent.id;
     this.colorId = gcalEvent.colorId;
@@ -56,11 +63,12 @@ export class CalendarEvent {
 
     this.attendeeCount = attendees.length;
     if (this.attendeeCount == 0) {
-      if (gcalEvent.recurringEventId !== undefined)
+      if (this.isOOOEvent())
+        this.type = TYPE_OOO;
+      else if (gcalEvent.recurringEventId !== undefined)
         this.type = TYPE_FOCUS_RECURRING;
-      else {
+      else
         this.type = TYPE_FOCUS_NON_RECURRING;
-      }
     }
     else if (this.attendeeCount == 1) {
       if (gcalEvent.recurringEventId !== undefined)

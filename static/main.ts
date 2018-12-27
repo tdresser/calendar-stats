@@ -77,7 +77,7 @@ function getStartOfWeek(date: Date): Date {
 function aggregateByWeek(aggregates: Aggregate[]) {
     const weekly: Aggregate[] = [];
     let currentWeekStart = getStartOfWeek(aggregates[0].start);
-    let minutesPerType : Map<string, number> = new Map();
+    let minutesPerType: Map<string, number> = new Map();
 
     for (let aggregate of aggregates) {
         const aggregateWeekStart = getStartOfWeek(aggregate.start);
@@ -231,15 +231,22 @@ function eventsToAggregates(events: CalendarEvent[]): Aggregate[] {
 
     for (let eventChange of eventChanges) {
         let primaryInProgressEvents = Array.from(inProgressEvents);
-        const minInProgressDuration =
-            primaryInProgressEvents.reduce((min, event) => {
-                return Math.min(event.duration, min);
-            }, Infinity);
+        // OOO events take priority.
+        const ooo = primaryInProgressEvents.filter(
+            e => e.isOOOEvent());
+        if (ooo.length !== 0) {
+            primaryInProgressEvents = ooo;
+        } else {
+            // Otherwise, prioritize short events.
+            const minInProgressDuration =
+                primaryInProgressEvents.reduce((min, event) => {
+                    return Math.min(event.duration, min);
+                }, Infinity);
 
-        primaryInProgressEvents = primaryInProgressEvents.filter(event => {
-            return event.duration == minInProgressDuration
-        })
-
+            primaryInProgressEvents = primaryInProgressEvents.filter(event => {
+                return event.duration == minInProgressDuration
+            })
+        }
         const durationMinutes = getDurationOverlappingWorkDay(ts, eventChange.ts, day) / 60 / 1000;
 
         for (let inProgressEvent of primaryInProgressEvents) {
@@ -318,9 +325,9 @@ async function getColors() {
 
 async function* getEvents() {
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 50);
+    startDate.setDate(startDate.getDate() - 365);
     const endDate = new Date();
-    endDate.setDate(endDate.getDate() + 0);
+    endDate.setDate(endDate.getDate() + 365);
 
     let pageToken = null;
     let pendingEvents: CalendarEvent[] = [];
@@ -333,7 +340,7 @@ async function* getEvents() {
             timeMax: endDate.toISOString(),
             showDeleted: false,
             singleEvents: true,
-            maxResults: 100, //2500, // Max.
+            maxResults: 2500, // Max.
             orderBy: 'startTime' as 'startTime',
             pageToken: undefined as string | undefined,
         }
