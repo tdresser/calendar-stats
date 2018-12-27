@@ -11,21 +11,17 @@ export class TaskQueue {
     }
 
     async doTasks() {
-        console.log("doTasks")
         if (this.inProgressTaskCount >= this.maxTasks)
             return;
         let task = this.tasks.pop();
         if (task === undefined) {
             for (let resolve of this.resolves)
               resolve();
-            console.log("EMPTIED QUEUE");
             return;
         }
         this.inProgressTaskCount++;
-        console.log("STARTING TASK");
 
         task().then(() => {
-            console.log("ENDING TASK");
             this.inProgressTaskCount--;
             this.doTasks();
         });

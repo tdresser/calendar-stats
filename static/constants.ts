@@ -6,27 +6,49 @@ export const TYPE_FOCUS_RECURRING = "Recurring focus block";
 export const TYPE_FOCUS_NON_RECURRING = "Non-recurring focus block";
 export const TYPE_UNBOOKED = "Unbooked time";
 export const TYPE_OOO = "OOO"
+export const TYPE_EMAIL = "Email"
+
 export const CALENDAR_ID = "primary";
 
-export const TYPES : Map<string, number> = new Map([
-    [TYPE_MEETING_RECURRING, 3],        // #dbadff
-    [TYPE_MEETING_NON_RECURRING, 11],   // #dc2127
-    [TYPE_ONE_ON_ONE_RECURRING, 10],    // #51b749
-    [TYPE_ONE_ON_ONE_NON_RECURRING, 4], // #ff7537
-    [TYPE_FOCUS_RECURRING, 1],          // #a4bdfc
-    [TYPE_FOCUS_NON_RECURRING, 2],      // #7ae7bf
-    [TYPE_UNBOOKED, 8],                 // #e1e1e1
-    [TYPE_OOO, 5],                      // #fbd75b
-]);
+const COLORS = [
+  "#a4bdfc",
+  "#7ae7bf",
+  "#dbadff",
+  "#ff887c",
+  "#fbd75b",
+  "#ffb878",
+  "#46d6db",
+  "#e1e1e1",
+  "#5484ed",
+  "#51b749",
+  "#dc2127",
+];
 
-//1: #a4bdfc
-//2: #7ae7bf
-//3: #dbadff
-//4: #ff887c
-//5: #fbd75b
-//6: #ffb878
-//7: #46d6db
-//8: #e1e1e1
-//9: #5484ed
-//10: #51b749
-//11: #dc2127
+const TYPE_COLORS : [string, string][] = [
+    [TYPE_MEETING_RECURRING,         "#ff887c"],
+    [TYPE_MEETING_NON_RECURRING,     "#dc2127"],
+    [TYPE_ONE_ON_ONE_RECURRING,      "#7ae7bf"],
+    [TYPE_ONE_ON_ONE_NON_RECURRING,  "#51b749"],
+    [TYPE_FOCUS_RECURRING,           "#a4bdfc"],
+    [TYPE_FOCUS_NON_RECURRING,       "#dbadff"],
+    [TYPE_EMAIL,                     "#5484ed"],
+    // Doesn't need to be approved color.
+    [TYPE_UNBOOKED,                  "#e1e1e1"],
+    [TYPE_OOO,                       "#fbd75b"],
+];
+
+export const TYPES : Map<string, number> = new Map(
+    TYPE_COLORS.map(type_color => {
+        return [
+            type_color[0],
+            COLORS.indexOf(type_color[1]) + 1,
+        ] as [string, number]
+    })
+);
+
+//10: #51b749, 2: #7ae7bf,
+//3:  #dbadff, 1: #a4bdfc
+//11: #dc2127, 4: #ff887c
+//6:  #ffb878, 5:  #fbd75b
+//9:  #5484ed, 7:  #46d6db
+//8:  #e1e1e1

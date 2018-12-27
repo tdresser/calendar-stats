@@ -8,9 +8,11 @@ import {
   TYPE_OOO,
   TYPES,
   CALENDAR_ID,
+  TYPE_EMAIL,
 } from "./constants.js";
 
 const OOO_REGEX = /.*(OOO|Holiday).*/;
+const EMAIL_REGEX = /.*(Email).*/;
 
 export class CalendarEvent {
   eventId: string;
@@ -65,6 +67,8 @@ export class CalendarEvent {
     if (this.attendeeCount == 0) {
       if (this.isOOOEvent())
         this.type = TYPE_OOO;
+      else if (this.summary.match(EMAIL_REGEX) !== null)
+        this.type = TYPE_EMAIL;
       else if (gcalEvent.recurringEventId !== undefined)
         this.type = TYPE_FOCUS_RECURRING;
       else
@@ -100,10 +104,6 @@ export class CalendarEvent {
     if (targetColorId == this.colorId)
       return;
 
-    /*console.log("Target: " + targetColorId)
-    console.log("before")
-    console.log(await CalendarEvent.fetchEventWithId(this.eventId));*/
-
     try {
       // @ts-ignore
       const response = await gapi.client.calendar.events.patch({
@@ -117,8 +117,5 @@ export class CalendarEvent {
       console.log("FAILED TO PATCH " + this.eventId);
       console.log(this);
     }
-
-    //console.log("after")
-    //console.log(await CalendarEvent.fetchEventWithId(this.eventId));
   }
 }

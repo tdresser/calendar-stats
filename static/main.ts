@@ -119,6 +119,7 @@ async function chartData(aggregates: Aggregate[], divId: string) {
     const data: PlotlySeries[] = [];
 
     for (let type of TYPES.keys()) {
+        const color = hexToRGB(colors[TYPES.get(type)].background);
         const ys = aggregates.map(day => day.minutesPerType.get(type)!);
         data.push({
             x: dates,
@@ -126,7 +127,7 @@ async function chartData(aggregates: Aggregate[], divId: string) {
             name: type,
             type: "bar",
             marker: {
-                color: hexToRGB(colors[TYPES.get(type)].background),
+                color: color,
             }
         });
     }
@@ -144,7 +145,7 @@ async function updateSigninStatus(isSignedIn: boolean) {
         authorizeButton.style.display = 'none';
         signoutButton.style.display = 'block';
         const events = [];
-        const taskQueue = new TaskQueue(10);
+        const taskQueue = new TaskQueue(1);
         for await (const event of getEvents()) {
             taskQueue.queueTask(() => event.setToTargetColor());
             events.push(event);
@@ -340,7 +341,7 @@ async function* getEvents() {
             timeMax: endDate.toISOString(),
             showDeleted: false,
             singleEvents: true,
-            maxResults: 2500, // Max.
+            maxResults: 500, // Max is 2500.
             orderBy: 'startTime' as 'startTime',
             pageToken: undefined as string | undefined,
         }
