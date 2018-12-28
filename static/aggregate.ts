@@ -13,7 +13,7 @@ export class Aggregate {
         Array.from(this.minutesPerType.values()).reduce(
           (s, c) => s + c);
 
-      if (totalMeetingTime > 8 * 60) {
+      if (totalMeetingTime > 8 * 60 + 0.001) {
         debugger;
         throw("Too much total meeting time");
       }

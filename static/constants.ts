@@ -7,6 +7,7 @@ export const TYPE_FOCUS_NON_RECURRING = "Non-recurring focus block";
 export const TYPE_UNBOOKED = "Unbooked time";
 export const TYPE_OOO = "OOO"
 export const TYPE_EMAIL = "Email"
+export const TYPE_INTERVIEW = "Interview"
 
 export const CALENDAR_ID = "primary";
 
@@ -32,6 +33,7 @@ const TYPE_COLORS : [string, string][] = [
     [TYPE_FOCUS_RECURRING,           "#a4bdfc"],
     [TYPE_FOCUS_NON_RECURRING,       "#dbadff"],
     [TYPE_EMAIL,                     "#5484ed"],
+    [TYPE_INTERVIEW,                 "#46d6db"],
     // Doesn't need to be approved color.
     [TYPE_UNBOOKED,                  "#e1e1e1"],
     [TYPE_OOO,                       "#fbd75b"],

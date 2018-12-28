@@ -106,7 +106,7 @@ async function updateSigninStatus(isSignedIn: boolean) {
         authorizeButton.style.display = 'none';
         signoutButton.style.display = 'block';
         const events = [];
-        const taskQueue = new TaskQueue(1);
+        const taskQueue = new TaskQueue(4);
         for await (const event of getEvents()) {
             taskQueue.queueTask(() => event.setToTargetColor());
             events.push(event);
@@ -288,7 +288,6 @@ async function* getEvents() {
     let pageToken = null;
     let pendingEvents: CalendarEvent[] = [];
 
-    // TODO - start streaming things.
     while (true) {
         const request = {
             calendarId: CALENDAR_ID,
@@ -313,9 +312,9 @@ async function* getEvents() {
 
         const response = await promise;
         pendingEvents =
-            response.result.items.filter(
-                e => e.transparency != "transparent").map(
-                    i => new CalendarEvent(i));
+            response.result.items.map(
+                    i => new CalendarEvent(i)).filter(
+                        e =>!e.getShouldIgnore());
 
         pageToken = response.result.nextPageToken;
         if (!pageToken)
