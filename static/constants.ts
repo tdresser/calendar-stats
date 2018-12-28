@@ -1,3 +1,6 @@
+export const CLIENT_ID = "960408234665-mr7v9joc0ckj65eju460e04mji08dsd7.apps.googleusercontent.com";
+export const API_KEY = "AIzaSyDZ2rBkT9mfS-zSrkovKw74hd_HmNBSahQ";
+
 export const TYPE_MEETING_RECURRING = "Recurring meeting";
 export const TYPE_MEETING_NON_RECURRING = "Non-recurring meeting";
 export const TYPE_ONE_ON_ONE_RECURRING = "Recurring one on one";
@@ -37,9 +40,8 @@ const TYPE_COLORS : [string, string][] = [
     [TYPE_FOCUS_NON_RECURRING,       "#dbadff"],
     [TYPE_EMAIL,                     "#5484ed"],
     [TYPE_INTERVIEW,                 "#46d6db"],
-    // Doesn't need to be approved color.
-    [TYPE_UNBOOKED,                  "#e1e1e1"],
-    [TYPE_OOO,                       "#fbd75b"],
+    [TYPE_UNBOOKED,                  "#fbd75b"],
+    [TYPE_OOO,                       "#e1e1e1"],
 ];
 
 export const TYPES : Map<string, number> = new Map(

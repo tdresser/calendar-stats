@@ -1,16 +1,16 @@
 type Task = () => Promise<void>;
 
 export class TaskQueue {
-    maxTasks: number;
-    tasks: Task[] = [];
-    inProgressTaskCount = 0;
-    resolves: (() => void)[] = [];
+    private maxTasks: number;
+    private tasks: Task[] = [];
+    private inProgressTaskCount = 0;
+    private resolves: (() => void)[] = [];
 
     constructor(maxTasks: number) {
         this.maxTasks = maxTasks;
     }
 
-    async doTasks() {
+    public async doTasks() {
         if (this.inProgressTaskCount >= this.maxTasks)
             return;
         let task = this.tasks.pop();
@@ -28,14 +28,14 @@ export class TaskQueue {
         this.doTasks();
     }
 
-    async queueTask(task: Task) {
+    public async queueTask(task: Task) {
         const shouldStart = this.tasks.length == 0;
         this.tasks.push(task);
         if (shouldStart)
             this.doTasks();
     }
 
-    flush() {
+    public flush() {
         return new Promise(resolve => {
             this.resolves.push(resolve);
         });

@@ -1,7 +1,7 @@
 import { CALENDAR_ID, TYPES } from './constants.js'
 import { Aggregate } from './aggregate.js'
 
-async function getColors() {
+async function fetchColors() {
     //@ts-ignore
     let response = await gapi.client.calendar.colors.get({
         calendarId: CALENDAR_ID,
@@ -17,14 +17,25 @@ function hexToRGB(hex: string): string {
 }
 
 export class Charter {
-    colors: any;
+    private colors: any = null;
+    private colorsResolves : ((a:any) => void)[] = [];
 
     async init() {
-        this.colors = await getColors();
+        fetchColors().then((colors) => {
+            this.colors = colors;
+        })
+    }
+
+    async getColors() : Promise<any>{
+        if (this.colors !== null)
+            return new Promise(resolve => resolve(this.colors));
+        return new Promise(resolve => {
+            this.colorsResolves.push(resolve);
+        });
     }
 
     async chartData(aggregates: Aggregate[], divId: string) {
-
+        await this.getColors();
         const dates = aggregates.map(day => day.start);
 
         interface PlotlySeries {
