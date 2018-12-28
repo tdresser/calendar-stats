@@ -1,5 +1,5 @@
 import { CalendarEvent } from './calendar_event.js'
-import { TYPES, CALENDAR_ID } from './constants.js'
+import { TYPES, CALENDAR_ID, WORKING_DAY_START, WORKING_DAY_END } from './constants.js'
 import { Aggregate } from './aggregate.js'
 import { TaskQueue } from './task_queue.js'
 import { Charter } from './charter.js';
@@ -143,9 +143,9 @@ const RANGE = "A:Z";
 
 function getDurationOverlappingWorkDay(start: Date, end: Date, day: Date) {
     const startOfDay = new Date(day);
-    startOfDay.setHours(9, 0, 0);
+    startOfDay.setHours(WORKING_DAY_START, 0, 0);
     const endOfDay = new Date(day);
-    endOfDay.setHours(17, 0, 0);
+    endOfDay.setHours(WORKING_DAY_END, 0, 0);
     const startTime = Math.max(startOfDay.getTime(), start.getTime());
     const endTime = Math.min(endOfDay.getTime(), end.getTime());
 
@@ -159,12 +159,13 @@ function eventsToAggregates(events: CalendarEvent[]): Aggregate[] {
     enum EVENT_CHANGE {
         EVENT_START,
         EVENT_END,
+        EVENT_WORKDAY,
     }
 
     interface EventChange {
         ts: Date,
         type: EVENT_CHANGE,
-        event: CalendarEvent
+        event: CalendarEvent | null,
     }
 
     const eventChanges: EventChange[] = [];
@@ -181,19 +182,53 @@ function eventsToAggregates(events: CalendarEvent[]): Aggregate[] {
         });
     }
 
-    eventChanges.sort((a: EventChange, b: EventChange) => {
+    function sortEvents(a: EventChange, b: EventChange) {
         return a.ts.getTime() - b.ts.getTime();
-    })
+    }
+    // TODO - eliminate multiple sorts.
+    eventChanges.sort(sortEvents)
 
-    const aggregates: Aggregate[] = [];
+    // Insert event changes at the beginning and end of the work
+    // day. Needed for multi-day events to work.
+    const firstDay = new Date(events[0].start);
+    const lastDay = new Date(events[events.length - 1].start);
+
+    // TODO - insert a change at the beginning and end of each day
+    // and handle empty event change regions.
+    for (const curDay = firstDay;
+        curDay.getTime() <= lastDay.getTime();
+        curDay.setDate(curDay.getDate() + 1)) {
+        const dayStart = new Date(curDay);
+        dayStart.setHours(WORKING_DAY_START, 0, 0);
+        const dayEnd = new Date(curDay);
+        dayEnd.setHours(WORKING_DAY_END, 0, 0);
+
+        eventChanges.push({
+            ts: dayStart,
+            type: EVENT_CHANGE.EVENT_WORKDAY,
+            event: null
+        })
+        eventChanges.push({
+            ts: dayEnd,
+            type: EVENT_CHANGE.EVENT_WORKDAY,
+            event: null
+        })
+    }
+
+    eventChanges.sort(sortEvents)
+
     const day = new Date(events[0].start);
     day.setHours(0, 0, 0);
+
+    const aggregates: Aggregate[] = [];
     const inProgressEvents: Set<CalendarEvent> = new Set();
     let ts = day;
 
     let minutesPerType: Map<string, number> = new Map();
 
     for (let eventChange of eventChanges) {
+        //if (day.toString() == new Date(2018,7,20).toString())
+        //    debugger;
         let primaryInProgressEvents = Array.from(inProgressEvents);
         // OOO events take priority.
         const ooo = primaryInProgressEvents.filter(
@@ -223,8 +258,12 @@ function eventsToAggregates(events: CalendarEvent[]): Aggregate[] {
         }
 
         if (eventChange.type == EVENT_CHANGE.EVENT_START) {
+            if (eventChange.event === null)
+                throw("Event start with null event.")
             inProgressEvents.add(eventChange.event);
         } else if (eventChange.type == EVENT_CHANGE.EVENT_END) {
+            if (eventChange.event === null)
+                throw("Event end with null event.")
             inProgressEvents.delete(eventChange.event)
         }
         ts = eventChange.ts;

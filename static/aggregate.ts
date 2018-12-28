@@ -11,7 +11,7 @@ export class Aggregate {
     addTotalNonMeetingTime() {
       let totalMeetingTime =
         Array.from(this.minutesPerType.values()).reduce(
-          (s, c) => s + c);
+          (s, c) => s + c, 0);
 
       if (totalMeetingTime > 8 * 60 + 0.001) {
         debugger;

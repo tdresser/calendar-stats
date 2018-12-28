@@ -11,6 +11,9 @@ export const TYPE_INTERVIEW = "Interview"
 
 export const CALENDAR_ID = "primary";
 
+export const WORKING_DAY_START = 9;
+export const WORKING_DAY_END = 17;
+
 const COLORS = [
   "#a4bdfc",
   "#7ae7bf",
